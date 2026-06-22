@@ -1,0 +1,28 @@
+A.
+1. IPC = Communication entre processus. Système de messages entre 2 processus séparées afin de communiquer entre elle des infos que l'une ou l'autre n'ont pas.
+    Cela existe, majoritairement, pour une question de sécurité. Ainsi un fichier n'aura pas accès à tout un autre fichier qui peut contenir des données sensibles, mais seulement ceux dont il a besoin.
+2. main a accès à node et renderer affiche l'interface.
+3. package.json : contient et charge tt stack technique + commande
+    main.js : créer l'app et gère les fichiers de celle-contient   
+    preload.js : expose api
+    fichier de la page: affiche interface
+4. ContextBridge : outil qui permet de mettre les fonctions qu'on choissis sur le window de la page.
+    On le met a false pour qu'aucun fichier hors main est accès au node pour des questions de sécurité (user aurait accès au node complet sinon)
+5. invoke/handle : appel http du front sous forme de promise avec une reponse
+    send/on : annonce envoyer au front depuis le "back"
+6. canal IPC : c'est l'uri unique de la route qui donne accès à ses fonctions, il faut qu'elle soit identitique des 2 cotés 
+
+B.
+1. invoke/handle
+2. send/on
+3. invoke/handle$
+4. send/on
+
+C.
+1. on accède à charger voiture par handle
+2. pas la même nomenclature
+3. pas de await
+4. manque createwindow
+5. nodeintegration à true au lieu de false
+
+D. 

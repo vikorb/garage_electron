@@ -1,0 +1,15 @@
+VOITURE : 
+    id incr NN
+    immatriculation varchar
+    marque varchar NN
+    modèle varchar NN
+    nom_client varchar NN
+    statut int NN (1:recu, 2:en reparation, 3:prete, 4:livre) default=1
+    description txt 
+    prix number 
+    prix_reparation number 
+
+ajouter_voiture
+lister_voiture
+supprimer_voiture
+modifier_voiture

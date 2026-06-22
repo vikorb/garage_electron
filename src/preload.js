@@ -1,0 +1,42 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  test: () =>
+    'preload OK',
+
+  listerVoitures: () =>
+    ipcRenderer.invoke('voitures:lister'),
+
+  ajouterVoiture: (donneesVoiture) =>
+    ipcRenderer.invoke('voitures:ajouter', donneesVoiture),
+
+  supprimerVoiture: (id) =>
+    ipcRenderer.invoke('voitures:supprimer', id),
+
+  modifierVoiture: (id, donneesVoiture) =>
+    ipcRenderer.invoke('voitures:modifier', id, donneesVoiture),
+
+  listerInterventionsParVoiture: (voitureId) =>
+    ipcRenderer.invoke('interventions:lister-par-voiture', voitureId),
+
+  ajouterIntervention: (donneesIntervention) =>
+    ipcRenderer.invoke('interventions:ajouter', donneesIntervention),
+
+  modifierIntervention: (id, donneesIntervention) =>
+    ipcRenderer.invoke('interventions:modifier', id, donneesIntervention),
+
+  supprimerIntervention: (id) =>
+    ipcRenderer.invoke('interventions:supprimer', id),
+
+  calculerTotalGlobalInterventions: () =>
+    ipcRenderer.invoke('interventions:total-global'),
+
+  calculerTotauxParVoiture: () =>
+    ipcRenderer.invoke('interventions:totaux-par-voiture'),
+
+  exporterFacture: (voitureId) =>
+    ipcRenderer.invoke('factures:exporter', voitureId),
+
+  envoyerNotification: (notification) =>
+    ipcRenderer.invoke('notifications:envoyer', notification)
+});

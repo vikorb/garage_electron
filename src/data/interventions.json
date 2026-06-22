@@ -1,0 +1,152 @@
+[
+  {
+    "id": 1,
+    "voiture_id": 1,
+    "description": "Diagnostic électronique moteur",
+    "prix": 90
+  },
+  {
+    "id": 2,
+    "voiture_id": 1,
+    "description": "Remplacement capteur de pression",
+    "prix": 210
+  },
+  {
+    "id": 3,
+    "voiture_id": 1,
+    "description": "Essai routier après réparation",
+    "prix": 50
+  },
+  {
+    "id": 4,
+    "voiture_id": 2,
+    "description": "Vidange moteur avec remplacement filtre à huile",
+    "prix": 140
+  },
+  {
+    "id": 5,
+    "voiture_id": 2,
+    "description": "Contrôle système de freinage",
+    "prix": 80
+  },
+  {
+    "id": 6,
+    "voiture_id": 2,
+    "description": "Remplacement plaquettes avant",
+    "prix": 220
+  },
+  {
+    "id": 7,
+    "voiture_id": 3,
+    "description": "Remplacement disques et plaquettes arrière",
+    "prix": 420
+  },
+  {
+    "id": 8,
+    "voiture_id": 3,
+    "description": "Recharge climatisation",
+    "prix": 95
+  },
+  {
+    "id": 9,
+    "voiture_id": 3,
+    "description": "Nettoyage complet habitacle",
+    "prix": 75
+  },
+  {
+    "id": 10,
+    "voiture_id": 4,
+    "description": "Diagnostic valise constructeur",
+    "prix": 120
+  },
+  {
+    "id": 11,
+    "voiture_id": 4,
+    "description": "Remplacement plaquettes de frein avant",
+    "prix": 260
+  },
+  {
+    "id": 12,
+    "voiture_id": 4,
+    "description": "Mise à jour électronique",
+    "prix": 80
+  },
+  {
+    "id": 13,
+    "voiture_id": 5,
+    "description": "Test batterie",
+    "prix": 40
+  },
+  {
+    "id": 14,
+    "voiture_id": 5,
+    "description": "Contrôle alternateur",
+    "prix": 70
+  },
+  {
+    "id": 15,
+    "voiture_id": 6,
+    "description": "Pré-contrôle technique",
+    "prix": 60
+  },
+  {
+    "id": 16,
+    "voiture_id": 6,
+    "description": "Entretien annuel",
+    "prix": 160
+  },
+  {
+    "id": 17,
+    "voiture_id": 7,
+    "description": "Réparation aile avant droite",
+    "prix": 520
+  },
+  {
+    "id": 18,
+    "voiture_id": 7,
+    "description": "Peinture carrosserie",
+    "prix": 430
+  },
+  {
+    "id": 19,
+    "voiture_id": 7,
+    "description": "Nettoyage intérieur premium",
+    "prix": 110
+  },
+  {
+    "id": 20,
+    "voiture_id": 8,
+    "description": "Diagnostic bruit freinage",
+    "prix": 70
+  },
+  {
+    "id": 21,
+    "voiture_id": 9,
+    "description": "Dépose boîte de vitesses",
+    "prix": 350
+  },
+  {
+    "id": 22,
+    "voiture_id": 9,
+    "description": "Remplacement kit embrayage",
+    "prix": 650
+  },
+  {
+    "id": 23,
+    "voiture_id": 10,
+    "description": "Diagnostic batterie haute tension",
+    "prix": 120
+  },
+  {
+    "id": 24,
+    "voiture_id": 10,
+    "description": "Contrôle logiciel véhicule",
+    "prix": 60
+  },
+  {
+    "id": 25,
+    "voiture_id": 11,
+    "description": "test test",
+    "prix": 20000
+  }
+]

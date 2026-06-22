@@ -1,0 +1,134 @@
+[
+  {
+    "id": 1,
+    "immatriculation": "AB-123-CD",
+    "marque": "Renault",
+    "modele": "Clio",
+    "nom_client": "Marie Dupuis",
+    "statut": 3,
+    "description": "Véhicule reçu pour voyant moteur allumé et perte de puissance.",
+    "prix": 8500,
+    "prix_reparation": 450
+  },
+  {
+    "id": 2,
+    "immatriculation": "EF-456-GH",
+    "marque": "Peugeot",
+    "modele": "208",
+    "nom_client": "Jean Dupont",
+    "statut": 2,
+    "description": "Révision complète en cours avec contrôle des freins et vidange.",
+    "prix": 9700,
+    "prix_reparation": 620
+  },
+  {
+    "id": 3,
+    "immatriculation": "JK-789-LM",
+    "marque": "Volkswagen",
+    "modele": "Golf",
+    "nom_client": "Sofia Martin",
+    "statut": 3,
+    "description": "Réparation terminée. Véhicule prêt à être récupéré.",
+    "prix": 14500,
+    "prix_reparation": 980
+  },
+  {
+    "id": 4,
+    "immatriculation": "NP-321-QR",
+    "marque": "BMW",
+    "modele": "Serie 3",
+    "nom_client": "Lucas Bernard",
+    "statut": 4,
+    "description": "Véhicule livré après remplacement des plaquettes et diagnostic électronique.",
+    "prix": 23500,
+    "prix_reparation": 760
+  },
+  {
+    "id": 5,
+    "immatriculation": "ST-654-UV",
+    "marque": "Audi",
+    "modele": "A3",
+    "nom_client": "Camille Leroy",
+    "statut": 2,
+    "description": "Problème de démarrage à froid. Diagnostic batterie et alternateur en cours.",
+    "prix": 19800,
+    "prix_reparation": 350
+  },
+  {
+    "id": 6,
+    "immatriculation": "WX-987-YZ",
+    "marque": "Toyota",
+    "modele": "Yaris",
+    "nom_client": "Nadia Petit",
+    "statut": 1,
+    "description": "Véhicule déposé pour contrôle technique et entretien annuel.",
+    "prix": 11200,
+    "prix_reparation": 220
+  },
+  {
+    "id": 7,
+    "immatriculation": "AA-111-BB",
+    "marque": "Mercedes",
+    "modele": "Classe A",
+    "nom_client": "Thomas Moreau",
+    "statut": 3,
+    "description": "Réparation carrosserie terminée. Nettoyage intérieur effectué.",
+    "prix": 26800,
+    "prix_reparation": 1250
+  },
+  {
+    "id": 8,
+    "immatriculation": "CC-222-DD",
+    "marque": "Citroën",
+    "modele": "C3",
+    "nom_client": "",
+    "statut": 1,
+    "description": "Client non renseigné. Véhicule reçu pour bruit suspect au freinage.",
+    "prix": 7900,
+    "prix_reparation": 0
+  },
+  {
+    "id": 9,
+    "immatriculation": "EE-333-FF",
+    "marque": "Ford",
+    "modele": "Fiesta",
+    "nom_client": "Hugo Lefevre",
+    "statut": 2,
+    "description": "Changement embrayage en cours. Pièce commandée.",
+    "prix": 8900,
+    "prix_reparation": 1100
+  },
+  {
+    "id": 10,
+    "immatriculation": "GG-444-HH",
+    "marque": "Tesla",
+    "modele": "Model 3",
+    "nom_client": "Victoria Oruba",
+    "statut": 4,
+    "description": "Diagnostic batterie effectué. Véhicule livré au client.",
+    "prix": 34500,
+    "prix_reparation": 180
+  },
+  {
+    "id": 11,
+    "immatriculation": "testt",
+    "marque": "test",
+    "modele": "test",
+    "nom_client": "test",
+    "statut": 1,
+    "description": "test test test\n",
+    "prix": 100000,
+    "prix_reparation": 0
+  },
+  {
+    "id": 12,
+    "immatriculation": "",
+    "marque": "\"''",
+    "modele": "\"''",
+    "nom_client": "",
+    "statut": 1,
+    "description": "",
+    "prix": 0,
+    "prix_reparation": 0
+  }
+]
