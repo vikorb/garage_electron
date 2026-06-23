@@ -15,11 +15,11 @@ export function initUi() {
   confirmationNon = document.getElementById('confirmation-non');
 
   confirmationOui.addEventListener('click', () => {
-    fermerConfirmation(true);
+    fermerConfirmationHtml(true);
   });
 
   confirmationNon.addEventListener('click', () => {
-    fermerConfirmation(false);
+    fermerConfirmationHtml(false);
   });
 }
 
@@ -54,7 +54,26 @@ export async function notifierSysteme(message) {
   }
 }
 
-export function demanderConfirmation(message) {
+export async function notifierApplication(message, type = 'info') {
+  // Notification visible dans l’interface : marche même si macOS bloque la notification native.
+  afficherToast(message, type);
+
+  // Notification native Electron : peut être bloquée sur macOS si l’app n’est pas signée/autorisée.
+  await notifierSysteme(message);
+}
+
+export async function demanderConfirmationNative(options) {
+  try {
+    const resultat = await window.electronAPI.confirmerAction(options);
+    return Boolean(resultat.confirmed);
+  } catch (error) {
+    console.warn('Confirmation native impossible, fallback HTML utilisé :', error);
+
+    return demanderConfirmationHtml(options?.message || 'Voulez-vous vraiment continuer ?');
+  }
+}
+
+function demanderConfirmationHtml(message) {
   confirmationMessage.textContent = message;
   ouvrirModal(confirmationModal);
 
@@ -63,7 +82,7 @@ export function demanderConfirmation(message) {
   });
 }
 
-function fermerConfirmation(resultat) {
+function fermerConfirmationHtml(resultat) {
   fermerModal(confirmationModal);
 
   if (resolveConfirmation) {

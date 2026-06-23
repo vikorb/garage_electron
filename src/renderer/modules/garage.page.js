@@ -2,8 +2,8 @@ import { state } from './state.js';
 import { formaterPrix, normaliserTexte } from './utils.js';
 import {
   afficherToast,
-  notifierSysteme,
-  demanderConfirmation,
+  notifierApplication,
+  demanderConfirmationNative,
   creerBadgeStatut,
   creerDetailVoiture
 } from './ui.js';
@@ -265,8 +265,9 @@ async function exporterFacture(id) {
       return;
     }
 
-    afficherToast('Facture exportée avec succès.', 'success');
-    await notifierSysteme('Facture exportée avec succès.');
+    console.log('Facture exportée :', resultat.filePath);
+
+    await notifierApplication('Facture exportée avec succès.', 'success');
   } catch (error) {
     console.error('Erreur export facture :', error);
     afficherToast(error.message || 'Erreur lors de l’export de la facture.', 'error');
@@ -274,9 +275,11 @@ async function exporterFacture(id) {
 }
 
 async function supprimerVoiture(id) {
-  const confirmation = await demanderConfirmation(
-    'Voulez-vous vraiment supprimer cette voiture et toutes ses interventions ?'
-  );
+  const confirmation = await demanderConfirmationNative({
+    title: 'Supprimer la voiture',
+    message: 'Voulez-vous vraiment supprimer cette voiture ?',
+    detail: 'Toutes les interventions liées à cette voiture seront aussi supprimées.'
+  });
 
   if (!confirmation) {
     return;
@@ -289,8 +292,7 @@ async function supprimerVoiture(id) {
       actions.fermerInterventions();
     }
 
-    afficherToast('Voiture supprimée avec succès.', 'success');
-    await notifierSysteme('Voiture supprimée avec succès.');
+    await notifierApplication('Voiture supprimée avec succès.', 'success');
 
     await afficherVoitures();
   } catch (error) {

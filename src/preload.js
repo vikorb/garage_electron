@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   obtenirCheminBase: () =>
     ipcRenderer.invoke('systeme:chemin-base'),
 
+  confirmerAction: (options) =>
+    ipcRenderer.invoke('dialog:confirmation', options),
+
   listerVoitures: () =>
     ipcRenderer.invoke('voitures:lister'),
 

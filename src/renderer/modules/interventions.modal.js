@@ -3,8 +3,8 @@ import { libellesStatuts } from './constants.js';
 import { formaterPrix } from './utils.js';
 import {
   afficherToast,
-  notifierSysteme,
-  demanderConfirmation,
+  notifierApplication,
+  demanderConfirmationNative,
   ouvrirModal,
   fermerModal
 } from './ui.js';
@@ -198,12 +198,10 @@ async function enregistrerIntervention(event) {
   try {
     if (interventionId) {
       await window.electronAPI.modifierIntervention(Number(interventionId), donneesIntervention);
-      afficherToast('Intervention modifiée avec succès.', 'success');
-      await notifierSysteme('Intervention modifiée avec succès.');
+      await notifierApplication('Intervention modifiée avec succès.', 'success');
     } else {
       await window.electronAPI.ajouterIntervention(donneesIntervention);
-      afficherToast('Intervention ajoutée avec succès.', 'success');
-      await notifierSysteme('Intervention ajoutée avec succès.');
+      await notifierApplication('Intervention ajoutée avec succès.', 'success');
     }
 
     fermerPopupFormIntervention();
@@ -245,9 +243,11 @@ async function gererClicListeInterventions(event) {
 async function supprimerIntervention(id) {
   const voitureId = state.voitureSelectionnee ? Number(state.voitureSelectionnee.id) : null;
 
-  const confirmation = await demanderConfirmation(
-    'Voulez-vous vraiment supprimer cette intervention ?'
-  );
+  const confirmation = await demanderConfirmationNative({
+    title: 'Supprimer l’intervention',
+    message: 'Voulez-vous vraiment supprimer cette intervention ?',
+    detail: 'Le total HT / TVA / TTC de la voiture sera recalculé automatiquement.'
+  });
 
   if (!confirmation || !voitureId) {
     return;
@@ -256,8 +256,7 @@ async function supprimerIntervention(id) {
   try {
     await window.electronAPI.supprimerIntervention(id);
 
-    afficherToast('Intervention supprimée avec succès.', 'success');
-    await notifierSysteme('Intervention supprimée avec succès.');
+    await notifierApplication('Intervention supprimée avec succès.', 'success');
 
     await afficherInterventions(voitureId);
     await onChanged();

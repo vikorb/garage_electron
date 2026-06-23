@@ -65,7 +65,7 @@ function createApplicationMenu() {
           label: 'Nouvelle voiture',
           accelerator: 'CmdOrCtrl+N',
           click: () => {
-            // Le menu vit côté Main, donc il demande au Renderer d’ouvrir la popup.
+            // Le menu est côté Main. On envoie donc une action au Renderer.
             envoyerActionAuRenderer('menu:nouvelle-voiture');
           }
         },
@@ -144,6 +144,24 @@ function createWindow() {
 
 ipcMain.handle('systeme:chemin-base', () => {
   return getDatabasePath();
+});
+
+ipcMain.handle('dialog:confirmation', async (event, options) => {
+  const browserWindow = BrowserWindow.fromWebContents(event.sender);
+
+  const resultat = await dialog.showMessageBox(browserWindow, {
+    type: 'warning',
+    buttons: ['Annuler', 'Confirmer'],
+    defaultId: 0,
+    cancelId: 0,
+    title: options?.title || 'Confirmation',
+    message: options?.message || 'Voulez-vous vraiment continuer ?',
+    detail: options?.detail || ''
+  });
+
+  return {
+    confirmed: resultat.response === 1
+  };
 });
 
 ipcMain.handle('voitures:lister', () => {

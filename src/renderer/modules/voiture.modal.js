@@ -1,4 +1,4 @@
-import { afficherToast, notifierSysteme, ouvrirModal, fermerModal } from './ui.js';
+import { afficherToast, notifierApplication, ouvrirModal, fermerModal } from './ui.js';
 
 let modalVoiture = null;
 let modalVoitureTitre = null;
@@ -6,6 +6,7 @@ let formVoiture = null;
 let messageVoiture = null;
 
 let onSaved = async () => {};
+let statutInitialVoiture = null;
 
 export function initVoitureModal(options) {
   onSaved = options.onSaved;
@@ -24,6 +25,7 @@ export function initVoitureModal(options) {
 export function ouvrirPopupAjoutVoiture() {
   modalVoitureTitre.textContent = 'Ajouter une voiture';
   messageVoiture.textContent = '';
+  statutInitialVoiture = null;
 
   formVoiture.reset();
 
@@ -36,6 +38,8 @@ export function ouvrirPopupAjoutVoiture() {
 export function ouvrirPopupModificationVoiture(voiture) {
   modalVoitureTitre.textContent = 'Modifier une voiture';
   messageVoiture.textContent = '';
+
+  statutInitialVoiture = Number(voiture.statut || 1);
 
   document.getElementById('voiture-id').value = voiture.id;
   document.getElementById('immatriculation').value = voiture.immatriculation || '';
@@ -52,6 +56,7 @@ export function ouvrirPopupModificationVoiture(voiture) {
 function fermerPopupVoiture() {
   formVoiture.reset();
   messageVoiture.textContent = '';
+  statutInitialVoiture = null;
   fermerModal(modalVoiture);
 }
 
@@ -61,30 +66,45 @@ async function enregistrerVoiture(event) {
   messageVoiture.textContent = '';
 
   const id = document.getElementById('voiture-id').value;
+  const nouveauStatut = Number(document.getElementById('statut').value);
 
   const donneesVoiture = {
     immatriculation: document.getElementById('immatriculation').value,
     marque: document.getElementById('marque').value,
     modele: document.getElementById('modele').value,
     nom_client: document.getElementById('nom_client').value,
-    statut: Number(document.getElementById('statut').value),
+    statut: nouveauStatut,
     description: document.getElementById('description').value,
     prix: Number(document.getElementById('prix').value || 0)
   };
 
   try {
+    let voitureEnregistree = null;
+
     if (id) {
-      await window.electronAPI.modifierVoiture(Number(id), donneesVoiture);
-      afficherToast('Voiture modifiée avec succès.', 'success');
-      await notifierSysteme('Voiture modifiée avec succès.');
+      voitureEnregistree = await window.electronAPI.modifierVoiture(Number(id), donneesVoiture);
+      await notifierApplication('Voiture modifiée avec succès.', 'success');
+
+      if (statutInitialVoiture !== 3 && nouveauStatut === 3) {
+        await notifierApplication(
+          `La voiture ${donneesVoiture.marque} ${donneesVoiture.modele} est maintenant prête.`,
+          'success'
+        );
+      }
     } else {
-      await window.electronAPI.ajouterVoiture(donneesVoiture);
-      afficherToast('Voiture ajoutée avec succès.', 'success');
-      await notifierSysteme('Voiture ajoutée avec succès.');
+      voitureEnregistree = await window.electronAPI.ajouterVoiture(donneesVoiture);
+      await notifierApplication('Voiture ajoutée avec succès.', 'success');
+
+      if (nouveauStatut === 3) {
+        await notifierApplication(
+          `La voiture ${donneesVoiture.marque} ${donneesVoiture.modele} est créée directement en statut prête.`,
+          'success'
+        );
+      }
     }
 
     fermerPopupVoiture();
-    await onSaved();
+    await onSaved(voitureEnregistree);
   } catch (error) {
     console.error('Erreur voiture :', error);
     messageVoiture.textContent = error.message || 'Erreur lors de l’enregistrement.';
