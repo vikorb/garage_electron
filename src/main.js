@@ -6,8 +6,14 @@ const {
   BrowserWindow,
   ipcMain,
   dialog,
-  Notification
+  Notification,
+  shell
 } = require('electron');
+
+const {
+  initialiserBase,
+  getDatabasePath
+} = require('./services/db.service');
 
 const {
   listerVoitures,
@@ -21,7 +27,6 @@ const {
   ajouterIntervention,
   modifierIntervention,
   supprimerIntervention,
-  supprimerInterventionsParVoiture,
   calculerTotalInterventionsGarage,
   calculerTotauxInterventionsParVoiture
 } = require('./services/interventions.service');
@@ -34,17 +39,28 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 850,
+    title: 'Garage Manager',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
   // win.webContents.openDevTools();
 }
+
+ipcMain.handle('systeme:chemin-base', () => {
+  return getDatabasePath();
+});
 
 ipcMain.handle('voitures:lister', () => {
   return listerVoitures();
@@ -55,7 +71,6 @@ ipcMain.handle('voitures:ajouter', (event, donneesVoiture) => {
 });
 
 ipcMain.handle('voitures:supprimer', (event, id) => {
-  supprimerInterventionsParVoiture(id);
   return supprimerVoiture(id);
 });
 
@@ -141,7 +156,10 @@ ipcMain.handle('notifications:envoyer', (event, notification) => {
 });
 
 app.whenReady().then(() => {
+  initialiserBase();
   createWindow();
+
+  console.log('Base SQLite :', getDatabasePath());
 });
 
 app.on('window-all-closed', () => {

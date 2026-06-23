@@ -1,59 +1,6 @@
-const fs = require('fs');
-const path = require('path');
+const { getDb } = require('./db.service');
 
-const { creerVoiture, STATUTS_VOITURE } = require('../models/voiture.model');
-
-const voituresFilePath = path.join(__dirname, '../data/voitures.json');
-
-const STATUTS_VALIDES = [
-  STATUTS_VOITURE.RECU,
-  STATUTS_VOITURE.EN_REPARATION,
-  STATUTS_VOITURE.PRETE,
-  STATUTS_VOITURE.LIVRE
-];
-
-function verifierFichierVoitures() {
-  const dossierData = path.dirname(voituresFilePath);
-
-  if (!fs.existsSync(dossierData)) {
-    fs.mkdirSync(dossierData, { recursive: true });
-  }
-
-  if (!fs.existsSync(voituresFilePath)) {
-    fs.writeFileSync(voituresFilePath, '[]', 'utf-8');
-  }
-}
-
-function lireVoitures() {
-  verifierFichierVoitures();
-
-  const contenu = fs.readFileSync(voituresFilePath, 'utf-8');
-
-  if (!contenu.trim()) {
-    return [];
-  }
-
-  return JSON.parse(contenu);
-}
-
-function ecrireVoitures(voitures) {
-  verifierFichierVoitures();
-
-  fs.writeFileSync(
-    voituresFilePath,
-    JSON.stringify(voitures, null, 2),
-    'utf-8'
-  );
-}
-
-function genererNouvelId(voitures) {
-  if (voitures.length === 0) {
-    return 1;
-  }
-
-  const ids = voitures.map((voiture) => Number(voiture.id));
-  return Math.max(...ids) + 1;
-}
+const STATUTS_VALIDES = [1, 2, 3, 4];
 
 function convertirNombre(valeur, nomChamp) {
   const nombre = Number(valeur || 0);
@@ -74,7 +21,7 @@ function validerDonneesVoiture(donneesVoiture) {
     throw new Error('Le modèle est obligatoire.');
   }
 
-  const statut = Number(donneesVoiture.statut || STATUTS_VOITURE.RECU);
+  const statut = Number(donneesVoiture.statut || 1);
 
   if (!STATUTS_VALIDES.includes(statut)) {
     throw new Error('Le statut est invalide.');
@@ -87,44 +34,135 @@ function validerDonneesVoiture(donneesVoiture) {
     nom_client: donneesVoiture.nom_client || '',
     statut,
     description: donneesVoiture.description || '',
-    prix: convertirNombre(donneesVoiture.prix, 'Le prix'),
-    prix_reparation: convertirNombre(donneesVoiture.prix_reparation, 'Le prix de réparation')
+    prix: convertirNombre(donneesVoiture.prix, 'Le prix')
   };
 }
 
 function listerVoitures() {
-  return lireVoitures();
+  const db = getDb();
+
+  return db.prepare(`
+    SELECT
+      id,
+      immatriculation,
+      marque,
+      modele,
+      nom_client,
+      statut,
+      description,
+      prix,
+      created_at,
+      updated_at
+    FROM voitures
+    ORDER BY id DESC
+  `).all();
+}
+
+function trouverVoitureParId(id) {
+  const db = getDb();
+
+  return db.prepare(`
+    SELECT
+      id,
+      immatriculation,
+      marque,
+      modele,
+      nom_client,
+      statut,
+      description,
+      prix,
+      created_at,
+      updated_at
+    FROM voitures
+    WHERE id = ?
+  `).get(Number(id));
 }
 
 function ajouterVoiture(donneesVoiture) {
-  const voitures = lireVoitures();
-
+  const db = getDb();
   const donneesValidees = validerDonneesVoiture(donneesVoiture);
 
-  const nouvelleVoiture = creerVoiture({
-    id: genererNouvelId(voitures),
-    ...donneesValidees
-  });
+  const resultat = db.prepare(`
+    INSERT INTO voitures (
+      immatriculation,
+      marque,
+      modele,
+      nom_client,
+      statut,
+      description,
+      prix
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    donneesValidees.immatriculation,
+    donneesValidees.marque,
+    donneesValidees.modele,
+    donneesValidees.nom_client,
+    donneesValidees.statut,
+    donneesValidees.description,
+    donneesValidees.prix
+  );
 
-  voitures.push(nouvelleVoiture);
-  ecrireVoitures(voitures);
-
-  return nouvelleVoiture;
+  return trouverVoitureParId(resultat.lastInsertRowid);
 }
 
-function supprimerVoiture(id) {
-  const voitures = lireVoitures();
+function modifierVoiture(id, donneesVoiture) {
+  const db = getDb();
   const idNombre = Number(id);
 
-  const voitureExiste = voitures.some((voiture) => Number(voiture.id) === idNombre);
+  const voitureExistante = trouverVoitureParId(idNombre);
 
-  if (!voitureExiste) {
+  if (!voitureExistante) {
     throw new Error('Voiture introuvable.');
   }
 
-  const voituresMiseAJour = voitures.filter((voiture) => Number(voiture.id) !== idNombre);
+  const donneesFusionnees = {
+    ...voitureExistante,
+    ...donneesVoiture
+  };
 
-  ecrireVoitures(voituresMiseAJour);
+  const donneesValidees = validerDonneesVoiture(donneesFusionnees);
+
+  db.prepare(`
+    UPDATE voitures
+    SET
+      immatriculation = ?,
+      marque = ?,
+      modele = ?,
+      nom_client = ?,
+      statut = ?,
+      description = ?,
+      prix = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(
+    donneesValidees.immatriculation,
+    donneesValidees.marque,
+    donneesValidees.modele,
+    donneesValidees.nom_client,
+    donneesValidees.statut,
+    donneesValidees.description,
+    donneesValidees.prix,
+    idNombre
+  );
+
+  return trouverVoitureParId(idNombre);
+}
+
+function supprimerVoiture(id) {
+  const db = getDb();
+  const idNombre = Number(id);
+
+  const voitureExistante = trouverVoitureParId(idNombre);
+
+  if (!voitureExistante) {
+    throw new Error('Voiture introuvable.');
+  }
+
+  db.prepare(`
+    DELETE FROM voitures
+    WHERE id = ?
+  `).run(idNombre);
 
   return {
     success: true,
@@ -132,43 +170,10 @@ function supprimerVoiture(id) {
   };
 }
 
-function modifierVoiture(id, donneesVoiture) {
-  const voitures = lireVoitures();
-  const idNombre = Number(id);
-
-  const indexVoiture = voitures.findIndex((voiture) => Number(voiture.id) === idNombre);
-
-  if (indexVoiture === -1) {
-    throw new Error('Voiture introuvable.');
-  }
-
-  const voitureActuelle = voitures[indexVoiture];
-
-  const donneesFusionnees = {
-    ...voitureActuelle,
-    ...donneesVoiture
-  };
-
-  const donneesValidees = validerDonneesVoiture(donneesFusionnees);
-
-  const voitureModifiee = creerVoiture({
-    id: voitureActuelle.id,
-    ...donneesValidees
-  });
-
-  voitures[indexVoiture] = voitureModifiee;
-
-  ecrireVoitures(voitures);
-
-  return voitureModifiee;
-}
-
 module.exports = {
-  lireVoitures,
-  ecrireVoitures,
-  genererNouvelId,
   listerVoitures,
+  trouverVoitureParId,
   ajouterVoiture,
-  supprimerVoiture,
-  modifierVoiture
+  modifierVoiture,
+  supprimerVoiture
 };

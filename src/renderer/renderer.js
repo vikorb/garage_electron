@@ -62,6 +62,9 @@ const libellesStatuts = {
 if (window.electronAPI) {
   preloadStatus.textContent = window.electronAPI.test();
   console.log('window.electronAPI existe :', window.electronAPI);
+  window.electronAPI.obtenirCheminBase().then((chemin) => {
+    console.log('Base SQLite userData :', chemin);
+  });
 } else {
   preloadStatus.textContent = 'Erreur : window.electronAPI est undefined';
   console.error('window.electronAPI est undefined');

@@ -1,55 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-
-const { creerIntervention } = require('../models/intervention.model');
-const { listerVoitures } = require('./voitures.service');
-
-const interventionsFilePath = path.join(__dirname, '../data/interventions.json');
+const { getDb } = require('./db.service');
+const { trouverVoitureParId } = require('./voitures.service');
 
 const TAUX_TVA = 0.2;
-
-function verifierFichierInterventions() {
-  const dossierData = path.dirname(interventionsFilePath);
-
-  if (!fs.existsSync(dossierData)) {
-    fs.mkdirSync(dossierData, { recursive: true });
-  }
-
-  if (!fs.existsSync(interventionsFilePath)) {
-    fs.writeFileSync(interventionsFilePath, '[]', 'utf-8');
-  }
-}
-
-function lireInterventions() {
-  verifierFichierInterventions();
-
-  const contenu = fs.readFileSync(interventionsFilePath, 'utf-8');
-
-  if (!contenu.trim()) {
-    return [];
-  }
-
-  return JSON.parse(contenu);
-}
-
-function ecrireInterventions(interventions) {
-  verifierFichierInterventions();
-
-  fs.writeFileSync(
-    interventionsFilePath,
-    JSON.stringify(interventions, null, 2),
-    'utf-8'
-  );
-}
-
-function genererNouvelId(interventions) {
-  if (interventions.length === 0) {
-    return 1;
-  }
-
-  const ids = interventions.map((intervention) => Number(intervention.id));
-  return Math.max(...ids) + 1;
-}
 
 function arrondirPrix(valeur) {
   return Math.round((Number(valeur || 0) + Number.EPSILON) * 100) / 100;
@@ -73,39 +25,14 @@ function calculerMontantsDepuisInterventions(interventions) {
 }
 
 function verifierVoitureExiste(voitureId) {
-  const voitures = listerVoitures();
-  const idNombre = Number(voitureId);
+  const voiture = trouverVoitureParId(Number(voitureId));
 
-  const voitureExiste = voitures.some(
-    (voiture) => Number(voiture.id) === idNombre
-  );
-
-  if (!voitureExiste) {
+  if (!voiture) {
     throw new Error('Voiture introuvable.');
   }
 }
 
-function listerInterventionsParVoiture(voitureId) {
-  verifierVoitureExiste(voitureId);
-
-  const idNombre = Number(voitureId);
-  const interventions = lireInterventions();
-
-  const interventionsVoiture = interventions.filter(
-    (intervention) => Number(intervention.voiture_id) === idNombre
-  );
-
-  const montants = calculerMontantsDepuisInterventions(interventionsVoiture);
-
-  return {
-    interventions: interventionsVoiture,
-    ...montants
-  };
-}
-
-function ajouterIntervention(donneesIntervention) {
-  const interventions = lireInterventions();
-
+function validerDonneesIntervention(donneesIntervention) {
   const voitureId = Number(donneesIntervention.voiture_id);
 
   verifierVoitureExiste(voitureId);
@@ -120,77 +47,125 @@ function ajouterIntervention(donneesIntervention) {
     throw new Error('Le prix doit être un nombre.');
   }
 
-  const nouvelleIntervention = creerIntervention({
-    id: genererNouvelId(interventions),
+  return {
     voiture_id: voitureId,
     description: donneesIntervention.description.trim(),
     prix
-  });
+  };
+}
 
-  interventions.push(nouvelleIntervention);
-  ecrireInterventions(interventions);
+function trouverInterventionParId(id) {
+  const db = getDb();
 
-  return nouvelleIntervention;
+  return db.prepare(`
+    SELECT
+      id,
+      voiture_id,
+      description,
+      prix,
+      created_at,
+      updated_at
+    FROM interventions
+    WHERE id = ?
+  `).get(Number(id));
+}
+
+function listerInterventionsParVoiture(voitureId) {
+  const db = getDb();
+  const idNombre = Number(voitureId);
+
+  verifierVoitureExiste(idNombre);
+
+  const interventions = db.prepare(`
+    SELECT
+      id,
+      voiture_id,
+      description,
+      prix,
+      created_at,
+      updated_at
+    FROM interventions
+    WHERE voiture_id = ?
+    ORDER BY id DESC
+  `).all(idNombre);
+
+  const montants = calculerMontantsDepuisInterventions(interventions);
+
+  return {
+    interventions,
+    ...montants
+  };
+}
+
+function ajouterIntervention(donneesIntervention) {
+  const db = getDb();
+  const donneesValidees = validerDonneesIntervention(donneesIntervention);
+
+  const resultat = db.prepare(`
+    INSERT INTO interventions (
+      voiture_id,
+      description,
+      prix
+    )
+    VALUES (?, ?, ?)
+  `).run(
+    donneesValidees.voiture_id,
+    donneesValidees.description,
+    donneesValidees.prix
+  );
+
+  return trouverInterventionParId(resultat.lastInsertRowid);
 }
 
 function modifierIntervention(id, donneesIntervention) {
-  const interventions = lireInterventions();
+  const db = getDb();
   const idNombre = Number(id);
 
-  const indexIntervention = interventions.findIndex(
-    (intervention) => Number(intervention.id) === idNombre
-  );
+  const interventionExistante = trouverInterventionParId(idNombre);
 
-  if (indexIntervention === -1) {
+  if (!interventionExistante) {
     throw new Error('Intervention introuvable.');
   }
 
-  const interventionActuelle = interventions[indexIntervention];
+  const donneesFusionnees = {
+    ...interventionExistante,
+    ...donneesIntervention
+  };
 
-  const voitureId = Number(donneesIntervention.voiture_id || interventionActuelle.voiture_id);
+  const donneesValidees = validerDonneesIntervention(donneesFusionnees);
 
-  verifierVoitureExiste(voitureId);
+  db.prepare(`
+    UPDATE interventions
+    SET
+      voiture_id = ?,
+      description = ?,
+      prix = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(
+    donneesValidees.voiture_id,
+    donneesValidees.description,
+    donneesValidees.prix,
+    idNombre
+  );
 
-  if (!donneesIntervention.description || !donneesIntervention.description.trim()) {
-    throw new Error('La description est obligatoire.');
-  }
-
-  const prix = Number(donneesIntervention.prix || 0);
-
-  if (Number.isNaN(prix)) {
-    throw new Error('Le prix doit être un nombre.');
-  }
-
-  const interventionModifiee = creerIntervention({
-    id: interventionActuelle.id,
-    voiture_id: voitureId,
-    description: donneesIntervention.description.trim(),
-    prix
-  });
-
-  interventions[indexIntervention] = interventionModifiee;
-  ecrireInterventions(interventions);
-
-  return interventionModifiee;
+  return trouverInterventionParId(idNombre);
 }
 
 function supprimerIntervention(id) {
-  const interventions = lireInterventions();
+  const db = getDb();
   const idNombre = Number(id);
 
-  const interventionExiste = interventions.some(
-    (intervention) => Number(intervention.id) === idNombre
-  );
+  const interventionExistante = trouverInterventionParId(idNombre);
 
-  if (!interventionExiste) {
+  if (!interventionExistante) {
     throw new Error('Intervention introuvable.');
   }
 
-  const interventionsMiseAJour = interventions.filter(
-    (intervention) => Number(intervention.id) !== idNombre
-  );
-
-  ecrireInterventions(interventionsMiseAJour);
+  db.prepare(`
+    DELETE FROM interventions
+    WHERE id = ?
+  `).run(idNombre);
 
   return {
     success: true,
@@ -199,14 +174,13 @@ function supprimerIntervention(id) {
 }
 
 function supprimerInterventionsParVoiture(voitureId) {
-  const interventions = lireInterventions();
+  const db = getDb();
   const idNombre = Number(voitureId);
 
-  const interventionsMiseAJour = interventions.filter(
-    (intervention) => Number(intervention.voiture_id) !== idNombre
-  );
-
-  ecrireInterventions(interventionsMiseAJour);
+  db.prepare(`
+    DELETE FROM interventions
+    WHERE voiture_id = ?
+  `).run(idNombre);
 
   return {
     success: true,
@@ -215,7 +189,13 @@ function supprimerInterventionsParVoiture(voitureId) {
 }
 
 function calculerTotalInterventionsGarage() {
-  const interventions = lireInterventions();
+  const db = getDb();
+
+  const interventions = db.prepare(`
+    SELECT prix
+    FROM interventions
+  `).all();
+
   const montants = calculerMontantsDepuisInterventions(interventions);
 
   return {
@@ -225,8 +205,17 @@ function calculerTotalInterventionsGarage() {
 }
 
 function calculerTotauxInterventionsParVoiture() {
-  const voitures = listerVoitures();
-  const interventions = lireInterventions();
+  const db = getDb();
+
+  const voitures = db.prepare(`
+    SELECT id
+    FROM voitures
+  `).all();
+
+  const interventions = db.prepare(`
+    SELECT voiture_id, prix
+    FROM interventions
+  `).all();
 
   const totaux = {};
 
@@ -242,8 +231,6 @@ function calculerTotauxInterventionsParVoiture() {
 }
 
 module.exports = {
-  lireInterventions,
-  ecrireInterventions,
   listerInterventionsParVoiture,
   ajouterIntervention,
   modifierIntervention,

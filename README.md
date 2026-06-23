@@ -290,7 +290,7 @@ Exemple :
   "immatriculation": "AB-123-CD",
   "marque": "Renault",
   "modele": "Clio",
-  "nom_client": "Enzo",
+  "nom_client": "Jean",
   "statut": 1,
   "description": "Problème moteur",
   "prix": 8000,

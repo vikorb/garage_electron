@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   test: () =>
     'preload OK',
 
+  obtenirCheminBase: () =>
+    ipcRenderer.invoke('systeme:chemin-base'),
+
   listerVoitures: () =>
     ipcRenderer.invoke('voitures:lister'),
 
