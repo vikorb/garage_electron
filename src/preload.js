@@ -1,5 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+function exposerEcouteurMenu(canal, callback) {
+  if (typeof callback !== 'function') {
+    return;
+  }
+
+  const listener = () => {
+    callback();
+  };
+
+  ipcRenderer.on(canal, listener);
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   test: () =>
     'preload OK',
@@ -41,5 +53,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('factures:exporter', voitureId),
 
   envoyerNotification: (notification) =>
-    ipcRenderer.invoke('notifications:envoyer', notification)
+    ipcRenderer.invoke('notifications:envoyer', notification),
+
+  ecouterNouvelleVoitureDepuisMenu: (callback) =>
+    exposerEcouteurMenu('menu:nouvelle-voiture', callback),
+
+  ecouterRechargementDepuisMenu: (callback) =>
+    exposerEcouteurMenu('menu:recharger', callback),
+
+  ecouterReinitialisationFiltresDepuisMenu: (callback) =>
+    exposerEcouteurMenu('menu:reinitialiser-filtres', callback)
 });

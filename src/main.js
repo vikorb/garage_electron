@@ -7,7 +7,8 @@ const {
   ipcMain,
   dialog,
   Notification,
-  shell
+  shell,
+  Menu
 } = require('electron');
 
 const {
@@ -35,27 +36,110 @@ const {
   genererFactureHtml
 } = require('./services/factures.service');
 
+let mainWindow = null;
+
+function envoyerActionAuRenderer(canal) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(canal);
+}
+
+function createApplicationMenu() {
+  const isMac = process.platform === 'darwin';
+
+  const template = [
+    ...(isMac
+      ? [
+          {
+            role: 'appMenu'
+          }
+        ]
+      : []),
+
+    {
+      label: 'Garage',
+      submenu: [
+        {
+          label: 'Nouvelle voiture',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            // Le menu vit côté Main, donc il demande au Renderer d’ouvrir la popup.
+            envoyerActionAuRenderer('menu:nouvelle-voiture');
+          }
+        },
+        {
+          label: 'Recharger les données',
+          accelerator: 'F5',
+          click: () => {
+            envoyerActionAuRenderer('menu:recharger');
+          }
+        },
+        {
+          label: 'Réinitialiser les filtres',
+          accelerator: 'CmdOrCtrl+Shift+F',
+          click: () => {
+            envoyerActionAuRenderer('menu:reinitialiser-filtres');
+          }
+        },
+        {
+          type: 'separator'
+        },
+        ...(!isMac
+          ? [
+              {
+                role: 'quit'
+              }
+            ]
+          : [])
+      ]
+    },
+
+    {
+      role: 'editMenu'
+    },
+
+    {
+      role: 'viewMenu'
+    },
+
+    {
+      role: 'windowMenu'
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 850,
     title: 'Garage Manager',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+
+      // Contraintes de sécurité du TP chapitre 2.
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
     }
   });
 
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  // win.webContents.openDevTools();
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  // mainWindow.webContents.openDevTools();
 }
 
 ipcMain.handle('systeme:chemin-base', () => {
@@ -157,6 +241,7 @@ ipcMain.handle('notifications:envoyer', (event, notification) => {
 
 app.whenReady().then(() => {
   initialiserBase();
+  createApplicationMenu();
   createWindow();
 
   console.log('Base SQLite :', getDatabasePath());
