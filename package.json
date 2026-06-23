@@ -1,16 +1,55 @@
 {
   "name": "gestionnaire-garage",
   "version": "1.0.0",
+  "description": "Application Electron de gestion de garage avec voitures, interventions, factures et persistance SQLite.",
   "main": "src/main.js",
+  "author": "Victoria ORUBA",
+  "license": "MIT",
+  "private": true,
+  "_comment_dmg": "Le target DMG est désactivé car hdiutil échoue si le Mac manque d'espace disque. Pour générer aussi le DMG, remplacer mac.target par [\"zip\", \"dmg\"] ou lancer npm run dist:dmg après avoir libéré de l'espace.",
   "scripts": {
-    "start": "electron ."
-  },
-  "devDependencies": {
-    "electron": "^39.8.10",
-    "electron-builder": "^26.15.3",
-    "electron-rebuild": "^3.2.9"
+    "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:dmg": "electron-builder --mac zip,dmg"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "electron": "^39.8.10",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.victoriaoruba.gestionnairegarage",
+    "productName": "Gestionnaire Garage",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    }
   }
 }

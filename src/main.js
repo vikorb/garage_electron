@@ -120,8 +120,6 @@ function createWindow() {
     title: 'Garage Manager',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-
-      // Contraintes de sécurité du TP chapitre 2.
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
