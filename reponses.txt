@@ -1,3 +1,5 @@
+TP1
+
 A.
 1. IPC = Communication entre processus. Système de messages entre 2 processus séparées afin de communiquer entre elle des infos que l'une ou l'autre n'ont pas.
     Cela existe, majoritairement, pour une question de sécurité. Ainsi un fichier n'aura pas accès à tout un autre fichier qui peut contenir des données sensibles, mais seulement ceux dont il a besoin.
@@ -25,4 +27,20 @@ C.
 4. manque createwindow
 5. nodeintegration à true au lieu de false
 
-D. 
+
+TP2
+
+A.
+1. dossier de l'app pour stocker données. Quand app installé, dossier en lecture seule écrasé à chaque maj
+2. electron-store : réglage, petite données
+    sql-lite : bcp données, requete, tri,...
+3. requête sql avec des "trou" qui protege des injections sql
+4. pas de cors car main pas navigateur soumis aux regles, raison de sécurité, mise à dispo de tt le monde si sur une autre page
+5. accelerator on peut le définir nous-même, personnalisez
+6. met code dans archive asar auto + embarque electron
+
+B.
+1. user peut injecter sql dans terme, il fat preparer la commande
+2. donner non écrite dans userData
+3. code api pas dans main doc exposé
+4. raccourci global jamais desenregistre
