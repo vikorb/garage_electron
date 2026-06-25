@@ -1,6 +1,7 @@
 import { renderLayout } from './modules/layout.js';
 import { initUi, afficherToast } from './modules/ui.js';
 import { initTheme } from './modules/theme.js';
+import { initMeteoPanel } from './modules/meteo.panel.js';
 
 import {
   initGaragePage,
@@ -23,6 +24,7 @@ import {
 renderLayout();
 initUi();
 initTheme();
+initMeteoPanel();
 
 const preloadStatus = document.getElementById('preload-status');
 

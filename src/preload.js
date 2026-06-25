@@ -82,5 +82,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     exposerEcouteurMenu('menu:recharger', callback),
 
   ecouterReinitialisationFiltresDepuisMenu: (callback) =>
-    exposerEcouteurMenu('menu:reinitialiser-filtres', callback)
+    exposerEcouteurMenu('menu:reinitialiser-filtres', callback),
+
+  obtenirMeteoGarage: () =>
+    ipcRenderer.invoke('meteo:garage'),
+
+  ecouterActualisationMeteoDepuisMenu: (callback) =>
+    exposerEcouteurMenu('menu:actualiser-meteo', callback),
 });

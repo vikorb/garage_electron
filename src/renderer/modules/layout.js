@@ -69,6 +69,46 @@ export function renderLayout() {
         </article>
       </section>
 
+      <section class="weather-panel">
+        <div class="weather-header">
+          <div>
+            <p class="eyebrow">Météo atelier</p>
+            <h2>Conditions autour du garage</h2>
+            <p id="meteo-ville">Mantes-la-Jolie</p>
+          </div>
+
+          <button id="btn-actualiser-meteo" type="button" class="btn-secondary">
+            Actualiser météo
+          </button>
+        </div>
+
+        <div class="weather-grid">
+          <div class="weather-main">
+            <span id="meteo-description">Chargement météo...</span>
+            <strong id="meteo-temperature">-- °C</strong>
+          </div>
+
+          <div class="weather-stat">
+            <span>Humidité</span>
+            <strong id="meteo-humidite">-- %</strong>
+          </div>
+
+          <div class="weather-stat">
+            <span>Vent</span>
+            <strong id="meteo-vent">-- km/h</strong>
+          </div>
+
+          <div class="weather-stat">
+            <span>Pluie</span>
+            <strong id="meteo-pluie">-- %</strong>
+          </div>
+        </div>
+
+        <p id="meteo-conseil" class="weather-advice">
+          Analyse météo en cours...
+        </p>
+      </section>
+
       <main class="page-card">
         <div class="section-header">
           <div>

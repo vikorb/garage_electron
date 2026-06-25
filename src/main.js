@@ -37,6 +37,10 @@ const {
   genererFactureHtml
 } = require('./services/factures.service');
 
+const {
+  recupererMeteoGarage
+} = require('./services/meteo.service');
+
 let mainWindow = null;
 
 function envoyerActionAuRenderer(canal) {
@@ -162,6 +166,13 @@ function createApplicationMenu() {
           accelerator: 'F5',
           click: () => {
             envoyerActionAuRenderer('menu:recharger');
+          }
+        },
+        {
+          label: 'Actualiser la météo',
+          accelerator: 'CmdOrCtrl+M',
+          click: () => {
+            envoyerActionAuRenderer('menu:actualiser-meteo');
           }
         },
         {
@@ -330,6 +341,10 @@ ipcMain.handle('interventions:total-global', () => {
 
 ipcMain.handle('interventions:totaux-par-voiture', () => {
   return calculerTotauxInterventionsParVoiture();
+});
+
+ipcMain.handle('meteo:garage', async () => {
+  return recupererMeteoGarage();
 });
 
 ipcMain.handle('factures:exporter', async (event, voitureId) => {
