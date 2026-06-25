@@ -693,3 +693,9 @@ app.on('will-quit', () => {
 ```
 
 Pour une action comme “Nouvelle voiture”, un `accelerator` de menu est souvent plus simple et suffisant.
+
+## Bonus — Notion d'auto-update
+
+Avec `electron-updater`, l’application peut vérifier automatiquement si une nouvelle version existe sur un serveur de publication, comme GitHub Releases ou un serveur privé.  
+`electron-builder` génère les fichiers de release et les métadonnées, comme `latest.yml`, qui indiquent quelle version télécharger.  
+Si une mise à jour est disponible, l’application peut la télécharger puis l’installer au redémarrage, mais sur macOS une application signée est normalement nécessaire.
