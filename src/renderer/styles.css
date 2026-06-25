@@ -1062,6 +1062,104 @@ body.theme-light .weather-advice {
   color: #1b1b1b;
 }
 
+.language-control {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 14px;
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+    rgba(15, 15, 15, 0.82);
+  border: 1px solid rgba(255, 31, 75, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 22px rgba(255, 31, 75, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.language-control-label {
+  color: rgba(255, 220, 225, 0.78);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.language-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.language-select-wrap::after {
+  content: "▾";
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-52%);
+  color: #ff1f4b;
+  font-size: 0.85rem;
+  pointer-events: none;
+  text-shadow: 0 0 10px rgba(255, 31, 75, 0.75);
+}
+
+#language-select {
+  height: 38px;
+  min-width: 118px;
+  appearance: none;
+  border: 1px solid rgba(255, 31, 75, 0.55);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(45, 45, 45, 0.95), rgba(14, 14, 14, 0.96));
+  color: #ffffff;
+  padding: 0 34px 0 15px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  outline: none;
+  cursor: pointer;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 18px rgba(255, 31, 75, 0.16);
+}
+
+#language-select:focus {
+  border-color: #ff1f4b;
+  box-shadow:
+    0 0 0 3px rgba(255, 31, 75, 0.16),
+    0 0 22px rgba(255, 31, 75, 0.28);
+}
+
+body.theme-light .language-control {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(236, 232, 225, 0.96));
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  box-shadow:
+    0 14px 34px rgba(32, 30, 26, 0.12),
+    0 0 18px rgba(224, 0, 0, 0.08);
+}
+
+body.theme-light .language-control-label {
+  color: #1f1f1f;
+}
+
+body.theme-light #language-select {
+  background:
+    linear-gradient(135deg, #171717 0%, #2a2a2a 100%);
+  color: #ffffff;
+  border: 1px solid #e00000;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 18px rgba(224, 0, 0, 0.22);
+}
+
+body.theme-light .language-select-wrap::after {
+  color: #ff1010;
+  text-shadow: 0 0 10px rgba(224, 0, 0, 0.65);
+}
+
 @media (max-width: 900px) {
   .weather-grid {
     grid-template-columns: repeat(2, 1fr);

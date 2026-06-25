@@ -1,4 +1,5 @@
-import { libellesStatuts } from './constants.js';
+import { t } from './i18n.js';
+import { getStatusTranslationKey } from './constants.js';
 
 let toastContainer = null;
 let confirmationModal = null;
@@ -55,10 +56,7 @@ export async function notifierSysteme(message) {
 }
 
 export async function notifierApplication(message, type = 'info') {
-  // Notification visible dans l’interface : marche même si macOS bloque la notification native.
   afficherToast(message, type);
-
-  // Notification native Electron : peut être bloquée sur macOS si l’app n’est pas signée/autorisée.
   await notifierSysteme(message);
 }
 
@@ -69,7 +67,7 @@ export async function demanderConfirmationNative(options) {
   } catch (error) {
     console.warn('Confirmation native impossible, fallback HTML utilisé :', error);
 
-    return demanderConfirmationHtml(options?.message || 'Voulez-vous vraiment continuer ?');
+    return demanderConfirmationHtml(options?.message || t('confirm.default'));
   }
 }
 
@@ -94,7 +92,7 @@ function fermerConfirmationHtml(resultat) {
 export function creerBadgeStatut(statut) {
   const badge = document.createElement('span');
   badge.className = `badge-status status-${statut}`;
-  badge.textContent = libellesStatuts[statut] || 'Statut inconnu';
+  badge.textContent = t(getStatusTranslationKey(statut));
 
   return badge;
 }

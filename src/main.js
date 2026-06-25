@@ -46,6 +46,7 @@ const {
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+let currentLanguage = 'fr';
 
 function getIconPath() {
   if (app.isPackaged) {
@@ -207,6 +208,135 @@ function envoyerActionAuRenderer(canal) {
   }
 }
 
+function getLanguagePreferencesPath() {
+  return path.join(app.getPath('userData'), 'language-preferences.json');
+}
+
+function detecterLangueParDefaut() {
+  const locale = app.getLocale ? app.getLocale().toLowerCase() : 'en';
+  const countryCode =
+    typeof app.getLocaleCountryCode === 'function'
+      ? app.getLocaleCountryCode().toUpperCase()
+      : '';
+
+  const paysFrancophones = [
+    'FR',
+    'BE',
+    'CH',
+    'LU',
+    'MC',
+    'CA',
+    'SN',
+    'CI',
+    'MA',
+    'DZ',
+    'TN',
+    'CM',
+    'CD',
+    'CG',
+    'GA',
+    'GN',
+    'ML',
+    'NE',
+    'BF',
+    'BJ',
+    'TG',
+    'MG',
+    'HT'
+  ];
+
+  if (locale.startsWith('fr') || paysFrancophones.includes(countryCode)) {
+    return 'fr';
+  }
+
+  return 'en';
+}
+
+function lireLangueSauvegardee() {
+  const languesAutorisees = ['fr', 'en'];
+
+  try {
+    const chemin = getLanguagePreferencesPath();
+
+    if (!fs.existsSync(chemin)) {
+      return detecterLangueParDefaut();
+    }
+
+    const contenu = fs.readFileSync(chemin, 'utf-8');
+    const preferences = JSON.parse(contenu);
+
+    if (languesAutorisees.includes(preferences.language)) {
+      return preferences.language;
+    }
+
+    return detecterLangueParDefaut();
+  } catch (error) {
+    console.warn('Impossible de lire la langue sauvegardée :', error);
+    return detecterLangueParDefaut();
+  }
+}
+
+function sauvegarderLangue(language) {
+  try {
+    const chemin = getLanguagePreferencesPath();
+
+    fs.mkdirSync(path.dirname(chemin), {
+      recursive: true
+    });
+
+    fs.writeFileSync(
+      chemin,
+      JSON.stringify(
+        {
+          language,
+          updated_at: new Date().toISOString()
+        },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+  } catch (error) {
+    console.warn('Impossible de sauvegarder la langue :', error);
+  }
+}
+
+function initialiserLangueDepuisCache() {
+  currentLanguage = lireLangueSauvegardee();
+}
+
+function obtenirLangueCourante() {
+  return {
+    language: currentLanguage,
+    locale: app.getLocale ? app.getLocale() : null
+  };
+}
+
+function envoyerLangueAuRenderer() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send('language:mis-a-jour', obtenirLangueCourante());
+}
+
+function definirLangue(language) {
+  const languesAutorisees = ['fr', 'en'];
+
+  if (!languesAutorisees.includes(language)) {
+    return obtenirLangueCourante();
+  }
+
+  currentLanguage = language;
+  sauvegarderLangue(language);
+
+  createApplicationMenu();
+  mettreAJourTrayMenu();
+  envoyerLangueAuRenderer();
+
+  return obtenirLangueCourante();
+}
+
 function createApplicationMenu() {
   const isMac = process.platform === 'darwin';
 
@@ -292,6 +422,28 @@ function createApplicationMenu() {
           checked: nativeTheme.themeSource === 'light',
           click: () => {
             definirThemeSource('light');
+          }
+        }
+      ]
+    },
+
+    {
+      label: currentLanguage === 'fr' ? 'Langue' : 'Language',
+      submenu: [
+        {
+          label: currentLanguage === 'fr' ? 'Français' : 'French',
+          type: 'radio',
+          checked: currentLanguage === 'fr',
+          click: () => {
+            definirLangue('fr');
+          }
+        },
+        {
+          label: currentLanguage === 'fr' ? 'Anglais' : 'English',
+          type: 'radio',
+          checked: currentLanguage === 'en',
+          click: () => {
+            definirLangue('en');
           }
         }
       ]
@@ -388,6 +540,27 @@ function createTrayContextMenu() {
       ]
     },
     {
+      label: currentLanguage === 'fr' ? 'Langue' : 'Language',
+      submenu: [
+        {
+          label: currentLanguage === 'fr' ? 'Français' : 'French',
+          type: 'radio',
+          checked: currentLanguage === 'fr',
+          click: () => {
+            definirLangue('fr');
+          }
+        },
+        {
+          label: currentLanguage === 'fr' ? 'Anglais' : 'English',
+          type: 'radio',
+          checked: currentLanguage === 'en',
+          click: () => {
+            definirLangue('en');
+          }
+        }
+      ]
+    },
+    {
       type: 'separator'
     },
     {
@@ -437,6 +610,7 @@ function createWindow() {
 
   mainWindow.webContents.on('did-finish-load', () => {
     envoyerThemeAuRenderer();
+    envoyerLangueAuRenderer();
   });
 
   mainWindow.on('close', (event) => {
@@ -530,16 +704,49 @@ ipcMain.handle('interventions:totaux-par-voiture', () => {
 });
 
 ipcMain.handle('factures:exporter', async (event, voitureId) => {
-  const facture = genererFactureHtml(voitureId);
-
   const browserWindow = BrowserWindow.fromWebContents(event.sender);
 
+  const langueParDefaut = currentLanguage === 'en' ? 'en' : 'fr';
+
+  const choixLangue = await dialog.showMessageBox(browserWindow, {
+    type: 'question',
+    title: langueParDefaut === 'fr' ? 'Langue de la facture' : 'Invoice language',
+    message:
+      langueParDefaut === 'fr'
+        ? 'Dans quelle langue voulez-vous générer la facture ?'
+        : 'Which language do you want to use for the invoice?',
+    buttons:
+      langueParDefaut === 'fr'
+        ? ['Français', 'Anglais', 'Annuler']
+        : ['English', 'French', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2
+  });
+
+  if (choixLangue.response === 2) {
+    return {
+      success: false,
+      canceled: true
+    };
+  }
+
+  const langueFacture =
+    langueParDefaut === 'fr'
+      ? choixLangue.response === 0
+        ? 'fr'
+        : 'en'
+      : choixLangue.response === 0
+        ? 'en'
+        : 'fr';
+
+  const facture = genererFactureHtml(voitureId, langueFacture);
+
   const resultat = await dialog.showSaveDialog(browserWindow, {
-    title: 'Exporter la facture',
+    title: langueFacture === 'fr' ? 'Exporter la facture' : 'Export invoice',
     defaultPath: path.join(app.getPath('documents'), facture.nomFichier),
     filters: [
       {
-        name: 'Fichier HTML',
+        name: langueFacture === 'fr' ? 'Fichier HTML' : 'HTML file',
         extensions: ['html']
       }
     ]
@@ -557,7 +764,8 @@ ipcMain.handle('factures:exporter', async (event, voitureId) => {
   return {
     success: true,
     canceled: false,
-    filePath: resultat.filePath
+    filePath: resultat.filePath,
+    language: langueFacture
   };
 });
 
@@ -586,9 +794,18 @@ ipcMain.handle('meteo:garage', async () => {
   return recupererMeteoGarage();
 });
 
+ipcMain.handle('language:obtenir', () => {
+  return obtenirLangueCourante();
+});
+
+ipcMain.handle('language:definir', (event, language) => {
+  return definirLangue(language);
+});
+
 app.whenReady().then(() => {
   initialiserBase();
   initialiserThemeDepuisCache();
+  initialiserLangueDepuisCache();
   createApplicationMenu();
   createWindow();
   createTray();

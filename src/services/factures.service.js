@@ -1,208 +1,341 @@
-const { listerVoitures } = require('./voitures.service');
+const { trouverVoitureParId } = require('./voitures.service');
 const { listerInterventionsParVoiture } = require('./interventions.service');
+
+const TVA_RATE = 0.2;
+
+const I18N = {
+  fr: {
+    filePrefix: 'facture',
+    title: 'Facture garage',
+    subtitle: 'Récapitulatif véhicule et interventions',
+    invoice: 'Facture',
+    vehicleInfo: 'Informations véhicule',
+    car: 'Véhicule',
+    plate: 'Immatriculation',
+    client: 'Client',
+    status: 'Statut',
+    vehiclePrice: 'Prix du véhicule',
+    description: 'Description',
+    interventions: 'Interventions',
+    noIntervention: 'Aucune intervention enregistrée.',
+    intervention: 'Intervention',
+    amountHt: 'Montant HT',
+    totals: 'Totaux',
+    totalHt: 'Total HT',
+    vat: 'TVA',
+    totalTtc: 'Total TTC',
+    generatedAt: 'Générée le',
+    noPlate: 'Sans immatriculation',
+    noClient: 'Non renseigné',
+    noDescription: 'Aucune description.',
+    statuses: {
+      1: 'Reçu',
+      2: 'En réparation',
+      3: 'Prête',
+      4: 'Livré'
+    }
+  },
+
+  en: {
+    filePrefix: 'invoice',
+    title: 'Garage invoice',
+    subtitle: 'Vehicle and interventions summary',
+    invoice: 'Invoice',
+    vehicleInfo: 'Vehicle information',
+    car: 'Vehicle',
+    plate: 'Plate number',
+    client: 'Client',
+    status: 'Status',
+    vehiclePrice: 'Vehicle price',
+    description: 'Description',
+    interventions: 'Interventions',
+    noIntervention: 'No intervention registered.',
+    intervention: 'Intervention',
+    amountHt: 'Amount excl. tax',
+    totals: 'Totals',
+    totalHt: 'Total excl. tax',
+    vat: 'VAT',
+    totalTtc: 'Total incl. tax',
+    generatedAt: 'Generated on',
+    noPlate: 'No plate number',
+    noClient: 'Not provided',
+    noDescription: 'No description.',
+    statuses: {
+      1: 'Received',
+      2: 'Repairing',
+      3: 'Ready',
+      4: 'Delivered'
+    }
+  }
+};
+
+function normaliserLangue(language) {
+  return language === 'en' ? 'en' : 'fr';
+}
 
 function echapperHtml(valeur) {
   return String(valeur ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function formaterPrix(valeur) {
-  return `${Number(valeur || 0).toFixed(2)} €`;
+  const nombre = Number(valeur || 0);
+
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(nombre);
 }
 
-function formaterDate(date = new Date()) {
-  return date.toLocaleDateString('fr-FR');
+function formaterDate(language) {
+  const locale = language === 'en' ? 'en-GB' : 'fr-FR';
+
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'full',
+    timeStyle: 'short'
+  }).format(new Date());
 }
 
-function genererNomFichierFacture(voiture) {
-  const identifiant = voiture.immatriculation || `${voiture.marque}-${voiture.modele}-${voiture.id}`;
+function calculerTotaux(interventions) {
+  const totalHt = interventions.reduce((total, intervention) => {
+    return total + Number(intervention.prix || 0);
+  }, 0);
 
-  const nomPropre = String(identifiant)
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/gi, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const tva = totalHt * TVA_RATE;
+  const totalTtc = totalHt + tva;
 
-  return `facture-${nomPropre}.html`;
+  return {
+    totalHt,
+    tva,
+    totalTtc
+  };
 }
 
-function genererFactureHtml(voitureId) {
-  const idNombre = Number(voitureId);
-  const voitures = listerVoitures();
+function creerNomFichier(voiture, language) {
+  const labels = I18N[language];
 
-  const voiture = voitures.find((element) => Number(element.id) === idNombre);
+  const identifiant = [
+    voiture.marque,
+    voiture.modele,
+    voiture.immatriculation || voiture.id
+  ]
+    .filter(Boolean)
+    .join('-')
+    .replaceAll(' ', '-')
+    .replace(/[^a-zA-Z0-9-_]/g, '')
+    .toLowerCase();
+
+  return `${labels.filePrefix}-${identifiant}.html`;
+}
+
+function genererFactureHtml(voitureId, language = 'fr') {
+  const langue = normaliserLangue(language);
+  const labels = I18N[langue];
+
+  const voiture = trouverVoitureParId(Number(voitureId));
 
   if (!voiture) {
-    throw new Error('Voiture introuvable.');
+    throw new Error(langue === 'fr' ? 'Voiture introuvable.' : 'Car not found.');
   }
 
-  const resultatInterventions = listerInterventionsParVoiture(idNombre);
-  const interventions = resultatInterventions.interventions;
+  const resultatInterventions = listerInterventionsParVoiture(Number(voitureId));
+  const interventions = resultatInterventions.interventions || [];
+  const totaux = calculerTotaux(interventions);
 
-  const lignesHtml = interventions.length > 0
-    ? interventions.map((intervention) => `
-        <tr>
-          <td>${echapperHtml(intervention.description)}</td>
-          <td class="price">${formaterPrix(intervention.prix)}</td>
-        </tr>
-      `).join('')
-    : `
-        <tr>
-          <td>Aucune intervention facturée</td>
-          <td class="price">0.00 €</td>
-        </tr>
-      `;
+  const statut = labels.statuses[Number(voiture.statut)] || labels.statuses[1];
 
-  const totalHT = resultatInterventions.total_ht || 0;
-  const tva = resultatInterventions.tva || 0;
-  const totalTTC = resultatInterventions.total_ttc || 0;
-  const tauxTVA = Number(resultatInterventions.taux_tva || 0.2) * 100;
+  const lignesInterventions = interventions.length === 0
+    ? `
+      <tr>
+        <td colspan="2" class="empty">${labels.noIntervention}</td>
+      </tr>
+    `
+    : interventions
+        .map((intervention) => {
+          return `
+            <tr>
+              <td>${echapperHtml(intervention.description)}</td>
+              <td class="amount">${formaterPrix(intervention.prix)}</td>
+            </tr>
+          `;
+        })
+        .join('');
 
   const html = `
-<!DOCTYPE html>
-<html lang="fr">
+<!doctype html>
+<html lang="${langue}">
 <head>
   <meta charset="UTF-8" />
-  <title>Facture ${echapperHtml(voiture.marque)} ${echapperHtml(voiture.modele)}</title>
+  <title>${echapperHtml(labels.title)}</title>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       padding: 40px;
       font-family: Arial, Helvetica, sans-serif;
-      color: #1f2937;
-      background: #f3f4f6;
+      color: #171717;
+      background: #f4f0e8;
     }
 
     .invoice {
-      max-width: 850px;
+      max-width: 900px;
       margin: 0 auto;
-      padding: 40px;
+      padding: 34px;
+      border-radius: 22px;
       background: #ffffff;
-      border-radius: 18px;
-      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(20, 20, 20, 0.08);
+      box-shadow: 0 24px 60px rgba(35, 31, 25, 0.14);
     }
 
     .header {
       display: flex;
       justify-content: space-between;
       gap: 24px;
-      border-bottom: 3px solid #ff1f4b;
+      align-items: flex-start;
+      margin-bottom: 34px;
       padding-bottom: 24px;
-      margin-bottom: 30px;
+      border-bottom: 3px solid #e00000;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #d00000;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 12px;
+      font-weight: 800;
     }
 
     h1 {
-      margin: 0;
-      color: #111827;
+      margin: 0 0 8px;
+      font-size: 34px;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      color: #111111;
     }
 
-    .garage {
-      color: #ff1f4b;
-      font-weight: bold;
-      margin-top: 6px;
+    h2 {
+      margin: 28px 0 14px;
+      padding-left: 12px;
+      font-size: 20px;
+      border-left: 4px solid #e00000;
     }
 
-    .meta {
+    p {
+      color: #555555;
+    }
+
+    .date {
       text-align: right;
-      color: #4b5563;
+      color: #555555;
+      font-size: 14px;
     }
 
-    .box {
-      padding: 18px;
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .info-card {
+      padding: 14px 16px;
       border-radius: 14px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      margin-bottom: 24px;
+      background: #f7f4ef;
+      border: 1px solid rgba(20, 20, 20, 0.08);
     }
 
-    .box h2 {
-      margin-top: 0;
-      font-size: 1.05rem;
-      color: #111827;
+    .info-card span {
+      display: block;
+      margin-bottom: 6px;
+      color: #666666;
+      font-size: 13px;
+    }
+
+    .info-card strong {
+      color: #111111;
+      font-size: 16px;
+    }
+
+    .description {
+      padding: 16px;
+      border-radius: 14px;
+      background: #f7f4ef;
+      border: 1px solid rgba(20, 20, 20, 0.08);
+      color: #444444;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 18px;
+      overflow: hidden;
+      border-radius: 14px;
     }
 
     th {
-      text-align: left;
-      background: #111827;
-      color: #ffffff;
       padding: 14px;
+      text-align: left;
+      color: #ffffff;
+      background: #d90000;
     }
 
     td {
-      border-bottom: 1px solid #e5e7eb;
       padding: 14px;
+      border-bottom: 1px solid #eeeeee;
+      background: #ffffff;
     }
 
-    .price {
+    .amount {
       text-align: right;
-      font-weight: bold;
+      font-weight: 700;
     }
 
-    .summary {
-      width: 340px;
+    .empty {
+      text-align: center;
+      color: #666666;
+      background: #f7f4ef;
+    }
+
+    .totals {
+      margin-top: 26px;
       margin-left: auto;
-      margin-top: 28px;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid #e5e7eb;
+      max-width: 360px;
+      display: grid;
+      gap: 10px;
     }
 
-    .summary-row {
+    .total-line {
       display: flex;
       justify-content: space-between;
-      padding: 14px;
-      background: #f9fafb;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #f7f4ef;
+      border: 1px solid rgba(20, 20, 20, 0.08);
     }
 
-    .summary-row:last-child {
-      border-bottom: none;
-    }
-
-    .summary-row strong {
-      color: #111827;
-    }
-
-    .summary-total {
-      background: #111827;
+    .total-line.final {
       color: #ffffff;
-      font-size: 1.15rem;
-    }
-
-    .summary-total strong {
-      color: #ff1f4b;
-      font-size: 1.25rem;
-    }
-
-    .footer {
-      margin-top: 36px;
-      color: #6b7280;
-      font-size: 0.9rem;
-      text-align: center;
+      background: linear-gradient(135deg, #ff1717, #960000);
+      font-size: 18px;
+      font-weight: 800;
     }
 
     @media print {
       body {
-        background: #ffffff;
         padding: 0;
+        background: #ffffff;
       }
 
       .invoice {
         box-shadow: none;
-        border-radius: 0;
+        border: none;
       }
     }
   </style>
@@ -210,72 +343,94 @@ function genererFactureHtml(voitureId) {
 
 <body>
   <main class="invoice">
-    <section class="header">
+    <header class="header">
       <div>
-        <h1>Facture</h1>
-        <p class="garage">Garage Manager</p>
+        <p class="eyebrow">Garage Manager</p>
+        <h1>${echapperHtml(labels.invoice)}</h1>
+        <p>${echapperHtml(labels.subtitle)}</p>
       </div>
 
-      <div class="meta">
-        <p><strong>Date :</strong> ${formaterDate()}</p>
-        <p><strong>Facture véhicule #${echapperHtml(voiture.id)}</strong></p>
+      <p class="date">
+        ${echapperHtml(labels.generatedAt)}<br />
+        <strong>${echapperHtml(formaterDate(langue))}</strong>
+      </p>
+    </header>
+
+    <section>
+      <h2>${echapperHtml(labels.vehicleInfo)}</h2>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <span>${echapperHtml(labels.car)}</span>
+          <strong>${echapperHtml(`${voiture.marque} ${voiture.modele}`)}</strong>
+        </div>
+
+        <div class="info-card">
+          <span>${echapperHtml(labels.plate)}</span>
+          <strong>${echapperHtml(voiture.immatriculation || labels.noPlate)}</strong>
+        </div>
+
+        <div class="info-card">
+          <span>${echapperHtml(labels.client)}</span>
+          <strong>${echapperHtml(voiture.nom_client || labels.noClient)}</strong>
+        </div>
+
+        <div class="info-card">
+          <span>${echapperHtml(labels.status)}</span>
+          <strong>${echapperHtml(statut)}</strong>
+        </div>
+
+        <div class="info-card">
+          <span>${echapperHtml(labels.vehiclePrice)}</span>
+          <strong>${echapperHtml(formaterPrix(voiture.prix))}</strong>
+        </div>
       </div>
+
+      <h2>${echapperHtml(labels.description)}</h2>
+      <p class="description">${echapperHtml(voiture.description || labels.noDescription)}</p>
     </section>
 
-    <section class="box">
-      <h2>Client et véhicule</h2>
-
-      <p><strong>Client :</strong> ${echapperHtml(voiture.nom_client || 'Non renseigné')}</p>
-      <p><strong>Marque :</strong> ${echapperHtml(voiture.marque)}</p>
-      <p><strong>Modèle :</strong> ${echapperHtml(voiture.modele)}</p>
-      <p><strong>Immatriculation :</strong> ${echapperHtml(voiture.immatriculation || 'Non renseignée')}</p>
-    </section>
-
-    <section class="box">
-      <h2>Détail des interventions</h2>
+    <section>
+      <h2>${echapperHtml(labels.interventions)}</h2>
 
       <table>
         <thead>
           <tr>
-            <th>Description</th>
-            <th class="price">Montant HT</th>
+            <th>${echapperHtml(labels.intervention)}</th>
+            <th class="amount">${echapperHtml(labels.amountHt)}</th>
           </tr>
         </thead>
 
         <tbody>
-          ${lignesHtml}
+          ${lignesInterventions}
         </tbody>
       </table>
 
-      <div class="summary">
-        <div class="summary-row">
-          <span>Total HT</span>
-          <strong>${formaterPrix(totalHT)}</strong>
+      <div class="totals">
+        <div class="total-line">
+          <span>${echapperHtml(labels.totalHt)}</span>
+          <strong>${echapperHtml(formaterPrix(totaux.totalHt))}</strong>
         </div>
 
-        <div class="summary-row">
-          <span>TVA ${tauxTVA}%</span>
-          <strong>${formaterPrix(tva)}</strong>
+        <div class="total-line">
+          <span>${echapperHtml(labels.vat)}</span>
+          <strong>${echapperHtml(formaterPrix(totaux.tva))}</strong>
         </div>
 
-        <div class="summary-row summary-total">
-          <span>Total TTC</span>
-          <strong>${formaterPrix(totalTTC)}</strong>
+        <div class="total-line final">
+          <span>${echapperHtml(labels.totalTtc)}</span>
+          <strong>${echapperHtml(formaterPrix(totaux.totalTtc))}</strong>
         </div>
       </div>
     </section>
-
-    <p class="footer">
-      Facture générée automatiquement par Garage Manager.
-    </p>
   </main>
 </body>
 </html>
-`;
+  `;
 
   return {
-    nomFichier: genererNomFichierFacture(voiture),
-    html
+    html,
+    nomFichier: creerNomFichier(voiture, langue)
   };
 }
 

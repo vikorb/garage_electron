@@ -1,4 +1,5 @@
 import { afficherToast, notifierApplication, ouvrirModal, fermerModal } from './ui.js';
+import { t } from './i18n.js';
 
 let modalVoiture = null;
 let modalVoitureTitre = null;
@@ -20,10 +21,13 @@ export function initVoitureModal(options) {
   document.getElementById('btn-annuler-voiture').addEventListener('click', fermerPopupVoiture);
 
   formVoiture.addEventListener('submit', enregistrerVoiture);
+
+  window.addEventListener('language-changed', () => {
+    mettreAJourTitreModalVoiture();
+  });
 }
 
 export function ouvrirPopupAjoutVoiture() {
-  modalVoitureTitre.textContent = 'Ajouter une voiture';
   messageVoiture.textContent = '';
   statutInitialVoiture = null;
 
@@ -32,11 +36,11 @@ export function ouvrirPopupAjoutVoiture() {
   document.getElementById('voiture-id').value = '';
   document.getElementById('statut').value = 1;
 
+  mettreAJourTitreModalVoiture();
   ouvrirModal(modalVoiture);
 }
 
 export function ouvrirPopupModificationVoiture(voiture) {
-  modalVoitureTitre.textContent = 'Modifier une voiture';
   messageVoiture.textContent = '';
 
   statutInitialVoiture = Number(voiture.statut || 1);
@@ -50,7 +54,18 @@ export function ouvrirPopupModificationVoiture(voiture) {
   document.getElementById('description').value = voiture.description || '';
   document.getElementById('prix').value = voiture.prix || 0;
 
+  mettreAJourTitreModalVoiture();
   ouvrirModal(modalVoiture);
+}
+
+function mettreAJourTitreModalVoiture() {
+  const id = document.getElementById('voiture-id')?.value;
+
+  if (!modalVoitureTitre) {
+    return;
+  }
+
+  modalVoitureTitre.textContent = id ? t('car.editTitle') : t('car.addTitle');
 }
 
 function fermerPopupVoiture() {
@@ -83,21 +98,27 @@ async function enregistrerVoiture(event) {
 
     if (id) {
       voitureEnregistree = await window.electronAPI.modifierVoiture(Number(id), donneesVoiture);
-      await notifierApplication('Voiture modifiée avec succès.', 'success');
+      await notifierApplication(t('toast.carUpdated'), 'success');
 
       if (statutInitialVoiture !== 3 && nouveauStatut === 3) {
         await notifierApplication(
-          `La voiture ${donneesVoiture.marque} ${donneesVoiture.modele} est maintenant prête.`,
+          t('notification.carReady', {
+            brand: donneesVoiture.marque,
+            model: donneesVoiture.modele
+          }),
           'success'
         );
       }
     } else {
       voitureEnregistree = await window.electronAPI.ajouterVoiture(donneesVoiture);
-      await notifierApplication('Voiture ajoutée avec succès.', 'success');
+      await notifierApplication(t('toast.carAdded'), 'success');
 
       if (nouveauStatut === 3) {
         await notifierApplication(
-          `La voiture ${donneesVoiture.marque} ${donneesVoiture.modele} est créée directement en statut prête.`,
+          t('notification.carCreatedReady', {
+            brand: donneesVoiture.marque,
+            model: donneesVoiture.modele
+          }),
           'success'
         );
       }
@@ -107,7 +128,7 @@ async function enregistrerVoiture(event) {
     await onSaved(voitureEnregistree);
   } catch (error) {
     console.error('Erreur voiture :', error);
-    messageVoiture.textContent = error.message || 'Erreur lors de l’enregistrement.';
+    messageVoiture.textContent = error.message || t('error.carSave');
     afficherToast(messageVoiture.textContent, 'error');
   }
 }

@@ -1,5 +1,7 @@
 import { state } from './state.js';
 import { formaterPrix } from './utils.js';
+import { t } from './i18n.js';
+
 import {
   afficherToast,
   notifierApplication,
@@ -50,7 +52,7 @@ export function initGaragePage(options) {
 
   btnRecharger.addEventListener('click', async () => {
     await afficherVoitures();
-    afficherToast('Données rechargées.', 'info');
+    afficherToast(t('toast.reload'), 'info');
   });
 
   btnReinitialiserFiltres.addEventListener('click', () => {
@@ -83,10 +85,10 @@ export async function afficherVoitures() {
 
     const li = document.createElement('li');
     li.className = 'voiture-card';
-    li.textContent = 'Erreur lors du chargement des voitures.';
+    li.textContent = t('garage.loadError');
     listeVoituresElement.appendChild(li);
 
-    afficherToast('Erreur lors du chargement des voitures.', 'error');
+    afficherToast(t('garage.loadError'), 'error');
   }
 }
 
@@ -97,7 +99,7 @@ export async function reinitialiserFiltres(afficherMessage = false) {
   await afficherVoitures();
 
   if (afficherMessage) {
-    afficherToast('Filtres réinitialisés.', 'info');
+    afficherToast(t('toast.filtersReset'), 'info');
   }
 }
 
@@ -124,10 +126,18 @@ async function mettreAJourDashboardGlobal() {
     });
 
     dashboardTotalVoitures.textContent = toutesLesVoitures.length;
-    dashboardRecu.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 1).length;
-    dashboardReparation.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 2).length;
-    dashboardPrete.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 3).length;
-    dashboardLivre.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 4).length;
+    dashboardRecu.textContent = toutesLesVoitures.filter(
+      (voiture) => Number(voiture.statut) === 1
+    ).length;
+    dashboardReparation.textContent = toutesLesVoitures.filter(
+      (voiture) => Number(voiture.statut) === 2
+    ).length;
+    dashboardPrete.textContent = toutesLesVoitures.filter(
+      (voiture) => Number(voiture.statut) === 3
+    ).length;
+    dashboardLivre.textContent = toutesLesVoitures.filter(
+      (voiture) => Number(voiture.statut) === 4
+    ).length;
 
     const resultat = await window.electronAPI.calculerTotalGlobalInterventions();
 
@@ -149,7 +159,7 @@ function afficherVoituresDepuisResultatsSql() {
   if (voitures.length === 0) {
     const li = document.createElement('li');
     li.className = 'voiture-card empty-card';
-    li.textContent = 'Aucune voiture ne correspond à la recherche SQL.';
+    li.textContent = t('garage.empty');
     listeVoituresElement.appendChild(li);
     return;
   }
@@ -180,7 +190,7 @@ function creerCarteVoiture(voiture) {
 
   const subtitle = document.createElement('p');
   subtitle.className = 'voiture-subtitle';
-  subtitle.textContent = `#${voiture.id} • ${voiture.immatriculation || 'Sans immatriculation'}`;
+  subtitle.textContent = `#${voiture.id} • ${voiture.immatriculation || t('car.noPlate')}`;
 
   titleZone.appendChild(title);
   titleZone.appendChild(subtitle);
@@ -191,23 +201,37 @@ function creerCarteVoiture(voiture) {
   const details = document.createElement('div');
   details.className = 'voiture-details';
 
-  details.appendChild(creerDetailVoiture('Client', voiture.nom_client || 'Non renseigné'));
-  details.appendChild(creerDetailVoiture('Prix véhicule', formaterPrix(voiture.prix)));
-  details.appendChild(creerDetailVoiture('Réparations HT', formaterPrix(totauxVoiture.total_ht)));
-  details.appendChild(creerDetailVoiture('TVA réparation', formaterPrix(totauxVoiture.tva)));
-  details.appendChild(creerDetailVoiture('Total réparations TTC', formaterPrix(totauxVoiture.total_ttc)));
+  details.appendChild(
+    creerDetailVoiture(t('car.client'), voiture.nom_client || t('car.noClient'))
+  );
+
+  details.appendChild(
+    creerDetailVoiture(t('car.priceLabel'), formaterPrix(voiture.prix))
+  );
+
+  details.appendChild(
+    creerDetailVoiture(t('car.repairsHt'), formaterPrix(totauxVoiture.total_ht))
+  );
+
+  details.appendChild(
+    creerDetailVoiture(t('car.repairVat'), formaterPrix(totauxVoiture.tva))
+  );
+
+  details.appendChild(
+    creerDetailVoiture(t('car.repairsTtc'), formaterPrix(totauxVoiture.total_ttc))
+  );
 
   const description = document.createElement('p');
   description.className = 'voiture-description';
-  description.textContent = voiture.description || 'Aucune description.';
+  description.textContent = voiture.description || t('car.noDescription');
 
   const actionZone = document.createElement('div');
   actionZone.className = 'voiture-actions';
 
-  actionZone.appendChild(creerBoutonAction('Modifier', 'btn-modifier', voiture.id));
-  actionZone.appendChild(creerBoutonAction('Interventions', 'btn-interventions', voiture.id));
-  actionZone.appendChild(creerBoutonAction('Facture', 'btn-facture', voiture.id));
-  actionZone.appendChild(creerBoutonAction('Supprimer', 'btn-supprimer', voiture.id));
+  actionZone.appendChild(creerBoutonAction(t('car.edit'), 'btn-modifier', voiture.id));
+  actionZone.appendChild(creerBoutonAction(t('car.interventions'), 'btn-interventions', voiture.id));
+  actionZone.appendChild(creerBoutonAction(t('car.invoice'), 'btn-facture', voiture.id));
+  actionZone.appendChild(creerBoutonAction(t('car.delete'), 'btn-supprimer', voiture.id));
 
   li.appendChild(header);
   li.appendChild(details);
@@ -237,7 +261,7 @@ async function gererClicListeVoitures(event) {
   const voiture = state.voituresCourantes.find((v) => Number(v.id) === id);
 
   if (!voiture) {
-    afficherToast('Voiture introuvable.', 'error');
+    afficherToast(t('car.notFound'), 'error');
     return;
   }
 
@@ -263,24 +287,24 @@ async function exporterFacture(id) {
     const resultat = await window.electronAPI.exporterFacture(id);
 
     if (resultat.canceled) {
-      afficherToast('Export de facture annulé.', 'info');
+      afficherToast(t('toast.invoiceCanceled'), 'info');
       return;
     }
 
     console.log('Facture exportée :', resultat.filePath);
 
-    await notifierApplication('Facture exportée avec succès.', 'success');
+    await notifierApplication(t('toast.invoiceExported'), 'success');
   } catch (error) {
     console.error('Erreur export facture :', error);
-    afficherToast(error.message || 'Erreur lors de l’export de la facture.', 'error');
+    afficherToast(error.message || t('error.invoiceExport'), 'error');
   }
 }
 
 async function supprimerVoiture(id) {
   const confirmation = await demanderConfirmationNative({
-    title: 'Supprimer la voiture',
-    message: 'Voulez-vous vraiment supprimer cette voiture ?',
-    detail: 'Toutes les interventions liées à cette voiture seront aussi supprimées.'
+    title: t('confirm.deleteCarTitle'),
+    message: t('confirm.deleteCarMessage'),
+    detail: t('confirm.deleteCarDetail')
   });
 
   if (!confirmation) {
@@ -294,11 +318,11 @@ async function supprimerVoiture(id) {
       actions.fermerInterventions();
     }
 
-    await notifierApplication('Voiture supprimée avec succès.', 'success');
+    await notifierApplication(t('toast.carDeleted'), 'success');
 
     await afficherVoitures();
   } catch (error) {
     console.error('Erreur suppression voiture :', error);
-    afficherToast(error.message || 'Erreur lors de la suppression de la voiture.', 'error');
+    afficherToast(error.message || t('error.carDelete'), 'error');
   }
 }

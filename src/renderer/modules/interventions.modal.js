@@ -1,6 +1,8 @@
 import { state } from './state.js';
-import { libellesStatuts } from './constants.js';
 import { formaterPrix } from './utils.js';
+import { t } from './i18n.js';
+import { getStatusTranslationKey } from './constants.js';
+
 import {
   afficherToast,
   notifierApplication,
@@ -25,6 +27,7 @@ let formIntervention = null;
 let messageInterventionForm = null;
 
 let onChanged = async () => {};
+let dernierResultatInterventions = null;
 
 export function initInterventionsModal(options) {
   onChanged = options.onChanged;
@@ -51,16 +54,17 @@ export function initInterventionsModal(options) {
 
   formIntervention.addEventListener('submit', enregistrerIntervention);
   listeInterventionsElement.addEventListener('click', gererClicListeInterventions);
+
+  window.addEventListener('language-changed', () => {
+    rafraichirTextesInterventions();
+  });
 }
 
 export async function ouvrirPopupInterventions(voiture) {
   state.voitureSelectionnee = voiture;
   messageIntervention.textContent = '';
 
-  interventionVoitureSelectionnee.textContent = `${voiture.marque} ${voiture.modele}`;
-  interventionClient.textContent = voiture.nom_client || 'Non renseigné';
-  interventionImmatriculation.textContent = voiture.immatriculation || 'Non renseignée';
-  interventionStatut.textContent = libellesStatuts[voiture.statut] || 'Statut inconnu';
+  remplirInfosVoitureSelectionnee(voiture);
 
   document.getElementById('intervention-voiture-id').value = voiture.id;
 
@@ -72,41 +76,67 @@ export async function ouvrirPopupInterventions(voiture) {
 export function fermerPopupInterventions() {
   state.voitureSelectionnee = null;
   state.interventionsCourantes = [];
+  dernierResultatInterventions = null;
 
   listeInterventionsElement.innerHTML = '';
   messageIntervention.textContent = '';
-  totalInterventionsElement.textContent = 'HT : 0 € | TVA : 0 € | TTC : 0 €';
+  totalInterventionsElement.textContent = t('interventions.totalValue', {
+    ht: formaterPrix(0),
+    vat: formaterPrix(0),
+    ttc: formaterPrix(0)
+  });
 
   fermerPopupFormIntervention();
   fermerModal(modalInterventions);
+}
+
+function remplirInfosVoitureSelectionnee(voiture) {
+  interventionVoitureSelectionnee.textContent = `${voiture.marque} ${voiture.modele}`;
+  interventionClient.textContent = voiture.nom_client || t('car.noClient');
+  interventionImmatriculation.textContent = voiture.immatriculation || t('car.noPlate');
+  interventionStatut.textContent = t(getStatusTranslationKey(voiture.statut));
 }
 
 async function afficherInterventions(voitureId) {
   try {
     const resultat = await window.electronAPI.listerInterventionsParVoiture(voitureId);
 
+    dernierResultatInterventions = resultat;
     state.interventionsCourantes = resultat.interventions;
 
-    listeInterventionsElement.innerHTML = '';
-
-    if (resultat.interventions.length === 0) {
-      const li = document.createElement('li');
-      li.className = 'intervention-item';
-      li.textContent = 'Aucune intervention pour cette voiture.';
-      listeInterventionsElement.appendChild(li);
-    } else {
-      resultat.interventions.forEach((intervention) => {
-        listeInterventionsElement.appendChild(creerLigneIntervention(intervention));
-      });
-    }
-
-    totalInterventionsElement.textContent =
-      `HT : ${formaterPrix(resultat.total_ht)} | TVA : ${formaterPrix(resultat.tva)} | TTC : ${formaterPrix(resultat.total_ttc)}`;
+    afficherInterventionsDepuisCache();
   } catch (error) {
     console.error('Erreur interventions :', error);
-    messageIntervention.textContent = error.message || 'Erreur lors du chargement des interventions.';
+    messageIntervention.textContent = error.message || t('interventions.loadError');
     afficherToast(messageIntervention.textContent, 'error');
   }
+}
+
+function afficherInterventionsDepuisCache() {
+  const resultat = dernierResultatInterventions;
+
+  if (!resultat) {
+    return;
+  }
+
+  listeInterventionsElement.innerHTML = '';
+
+  if (resultat.interventions.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'intervention-item';
+    li.textContent = t('interventions.empty');
+    listeInterventionsElement.appendChild(li);
+  } else {
+    resultat.interventions.forEach((intervention) => {
+      listeInterventionsElement.appendChild(creerLigneIntervention(intervention));
+    });
+  }
+
+  totalInterventionsElement.textContent = t('interventions.totalValue', {
+    ht: formaterPrix(resultat.total_ht),
+    vat: formaterPrix(resultat.tva),
+    ttc: formaterPrix(resultat.total_ttc)
+  });
 }
 
 function creerLigneIntervention(intervention) {
@@ -128,12 +158,12 @@ function creerLigneIntervention(intervention) {
   actions.className = 'intervention-actions';
 
   const btnModifier = document.createElement('button');
-  btnModifier.textContent = 'Modifier';
+  btnModifier.textContent = t('car.edit');
   btnModifier.dataset.id = intervention.id;
   btnModifier.classList.add('btn-modifier-intervention');
 
   const btnSupprimer = document.createElement('button');
-  btnSupprimer.textContent = 'Supprimer';
+  btnSupprimer.textContent = t('car.delete');
   btnSupprimer.dataset.id = intervention.id;
   btnSupprimer.classList.add('btn-supprimer-intervention');
 
@@ -148,11 +178,10 @@ function creerLigneIntervention(intervention) {
 
 function ouvrirPopupAjoutIntervention() {
   if (!state.voitureSelectionnee) {
-    afficherToast('Aucune voiture sélectionnée.', 'error');
+    afficherToast(t('interventions.noCarSelected'), 'error');
     return;
   }
 
-  modalInterventionTitre.textContent = 'Ajouter une intervention';
   messageInterventionForm.textContent = '';
 
   formIntervention.reset();
@@ -160,11 +189,11 @@ function ouvrirPopupAjoutIntervention() {
   document.getElementById('intervention-id').value = '';
   document.getElementById('intervention-voiture-id').value = state.voitureSelectionnee.id;
 
+  mettreAJourTitreInterventionForm();
   ouvrirModal(modalInterventionForm);
 }
 
 function ouvrirPopupModificationIntervention(intervention) {
-  modalInterventionTitre.textContent = 'Modifier une intervention';
   messageInterventionForm.textContent = '';
 
   document.getElementById('intervention-id').value = intervention.id;
@@ -172,7 +201,18 @@ function ouvrirPopupModificationIntervention(intervention) {
   document.getElementById('intervention-description').value = intervention.description || '';
   document.getElementById('intervention-prix').value = intervention.prix || 0;
 
+  mettreAJourTitreInterventionForm();
   ouvrirModal(modalInterventionForm);
+}
+
+function mettreAJourTitreInterventionForm() {
+  const id = document.getElementById('intervention-id')?.value;
+
+  if (!modalInterventionTitre) {
+    return;
+  }
+
+  modalInterventionTitre.textContent = id ? t('interventions.editTitle') : t('interventions.addTitle');
 }
 
 function fermerPopupFormIntervention() {
@@ -198,10 +238,10 @@ async function enregistrerIntervention(event) {
   try {
     if (interventionId) {
       await window.electronAPI.modifierIntervention(Number(interventionId), donneesIntervention);
-      await notifierApplication('Intervention modifiée avec succès.', 'success');
+      await notifierApplication(t('toast.interventionUpdated'), 'success');
     } else {
       await window.electronAPI.ajouterIntervention(donneesIntervention);
-      await notifierApplication('Intervention ajoutée avec succès.', 'success');
+      await notifierApplication(t('toast.interventionAdded'), 'success');
     }
 
     fermerPopupFormIntervention();
@@ -210,7 +250,7 @@ async function enregistrerIntervention(event) {
     await onChanged();
   } catch (error) {
     console.error('Erreur intervention :', error);
-    messageInterventionForm.textContent = error.message || 'Erreur lors de l’enregistrement de l’intervention.';
+    messageInterventionForm.textContent = error.message || t('error.interventionSave');
     afficherToast(messageInterventionForm.textContent, 'error');
   }
 }
@@ -228,7 +268,7 @@ async function gererClicListeInterventions(event) {
     const intervention = state.interventionsCourantes.find((item) => Number(item.id) === id);
 
     if (!intervention) {
-      afficherToast('Intervention introuvable.', 'error');
+      afficherToast(t('interventions.notFound'), 'error');
       return;
     }
 
@@ -244,9 +284,9 @@ async function supprimerIntervention(id) {
   const voitureId = state.voitureSelectionnee ? Number(state.voitureSelectionnee.id) : null;
 
   const confirmation = await demanderConfirmationNative({
-    title: 'Supprimer l’intervention',
-    message: 'Voulez-vous vraiment supprimer cette intervention ?',
-    detail: 'Le total HT / TVA / TTC de la voiture sera recalculé automatiquement.'
+    title: t('confirm.deleteInterventionTitle'),
+    message: t('confirm.deleteInterventionMessage'),
+    detail: t('confirm.deleteInterventionDetail')
   });
 
   if (!confirmation || !voitureId) {
@@ -256,12 +296,21 @@ async function supprimerIntervention(id) {
   try {
     await window.electronAPI.supprimerIntervention(id);
 
-    await notifierApplication('Intervention supprimée avec succès.', 'success');
+    await notifierApplication(t('toast.interventionDeleted'), 'success');
 
     await afficherInterventions(voitureId);
     await onChanged();
   } catch (error) {
     console.error('Erreur suppression intervention :', error);
-    afficherToast(error.message || 'Erreur lors de la suppression de l’intervention.', 'error');
+    afficherToast(error.message || t('error.interventionDelete'), 'error');
   }
+}
+
+function rafraichirTextesInterventions() {
+  if (state.voitureSelectionnee) {
+    remplirInfosVoitureSelectionnee(state.voitureSelectionnee);
+  }
+
+  mettreAJourTitreInterventionForm();
+  afficherInterventionsDepuisCache();
 }

@@ -89,4 +89,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ecouterActualisationMeteoDepuisMenu: (callback) =>
     exposerEcouteurMenu('menu:actualiser-meteo', callback),
+
+  obtenirLangue: () =>
+  ipcRenderer.invoke('language:obtenir'),
+
+  definirLangue: (language) =>
+    ipcRenderer.invoke('language:definir', language),
+
+  ecouterLangueMiseAJour: (callback) =>
+    exposerEcouteurAvecPayload('language:mis-a-jour', callback),
 });

@@ -1,4 +1,5 @@
 import { afficherToast } from './ui.js';
+import { t } from './i18n.js';
 
 let meteoVille = null;
 let meteoDescription = null;
@@ -8,6 +9,8 @@ let meteoVent = null;
 let meteoPluie = null;
 let meteoConseil = null;
 let btnActualiserMeteo = null;
+
+let derniereMeteo = null;
 
 export function initMeteoPanel() {
   meteoVille = document.getElementById('meteo-ville');
@@ -31,6 +34,14 @@ export function initMeteoPanel() {
     });
   }
 
+  window.addEventListener('language-changed', () => {
+    if (derniereMeteo) {
+      afficherMeteo(derniereMeteo);
+    } else {
+      afficherChargement();
+    }
+  });
+
   chargerMeteoGarage(false);
 }
 
@@ -40,44 +51,79 @@ async function chargerMeteoGarage(afficherMessage = false) {
 
     const meteo = await window.electronAPI.obtenirMeteoGarage();
 
-    meteoVille.textContent = meteo.ville || 'Garage';
-    meteoDescription.textContent = meteo.description || 'Météo inconnue';
-    meteoTemperature.textContent = `${formaterNombre(meteo.temperature)} °C`;
-    meteoHumidite.textContent = `${formaterNombre(meteo.humidite)} %`;
-    meteoVent.textContent = `${formaterNombre(meteo.vent)} km/h`;
-
-    if (meteo.probabilite_pluie === null || meteo.probabilite_pluie === undefined) {
-      meteoPluie.textContent = `${formaterNombre(meteo.precipitation)} mm`;
-    } else {
-      meteoPluie.textContent = `${formaterNombre(meteo.probabilite_pluie)} %`;
-    }
-
-    meteoConseil.textContent = meteo.conseil || 'Conditions météo récupérées.';
+    derniereMeteo = meteo;
+    afficherMeteo(meteo);
 
     if (afficherMessage) {
-      afficherToast('Météo actualisée avec succès.', 'success');
+      afficherToast(t('weather.updated'), 'success');
     }
   } catch (error) {
     console.error('Erreur météo :', error);
 
-    meteoDescription.textContent = 'Météo indisponible';
+    derniereMeteo = null;
+
+    meteoDescription.textContent = t('weather.unavailable');
     meteoTemperature.textContent = '-- °C';
     meteoHumidite.textContent = '-- %';
     meteoVent.textContent = '-- km/h';
     meteoPluie.textContent = '--';
-    meteoConseil.textContent = 'Impossible de récupérer la météo. Vérifie la connexion internet.';
+    meteoConseil.textContent = t('weather.errorAdvice');
 
-    afficherToast('Erreur lors du chargement de la météo.', 'error');
+    afficherToast(t('error.weather'), 'error');
   }
 }
 
+function afficherMeteo(meteo) {
+  meteoVille.textContent = meteo.ville || 'Garage';
+  meteoDescription.textContent = getWeatherDescription(meteo.weather_code);
+  meteoTemperature.textContent = `${formaterNombre(meteo.temperature)} °C`;
+  meteoHumidite.textContent = `${formaterNombre(meteo.humidite)} %`;
+  meteoVent.textContent = `${formaterNombre(meteo.vent)} km/h`;
+
+  if (meteo.probabilite_pluie === null || meteo.probabilite_pluie === undefined) {
+    meteoPluie.textContent = `${formaterNombre(meteo.precipitation)} mm`;
+  } else {
+    meteoPluie.textContent = `${formaterNombre(meteo.probabilite_pluie)} %`;
+  }
+
+  meteoConseil.textContent = getWeatherAdvice(meteo);
+}
+
 function afficherChargement() {
-  meteoDescription.textContent = 'Chargement météo...';
+  meteoDescription.textContent = t('weather.loading');
   meteoTemperature.textContent = '-- °C';
   meteoHumidite.textContent = '-- %';
   meteoVent.textContent = '-- km/h';
   meteoPluie.textContent = '--';
-  meteoConseil.textContent = 'Analyse météo en cours...';
+  meteoConseil.textContent = t('weather.analysis');
+}
+
+function getWeatherDescription(code) {
+  const key = `weatherCode.${Number(code)}`;
+  const translated = t(key);
+
+  return translated === key ? t('weatherCode.unknown') : translated;
+}
+
+function getWeatherAdvice(meteo) {
+  const weatherCode = Number(meteo.weather_code || 0);
+  const precipitation = Number(meteo.precipitation || 0);
+  const rain = Number(meteo.rain || 0);
+  const wind = Number(meteo.vent || 0);
+
+  if ([61, 63, 65, 80, 81, 82, 95].includes(weatherCode) || precipitation > 0 || rain > 0) {
+    return t('weather.rainAdvice');
+  }
+
+  if (wind >= 45) {
+    return t('weather.windAdvice');
+  }
+
+  if ([45, 48].includes(weatherCode)) {
+    return t('weather.fogAdvice');
+  }
+
+  return t('weather.conditionsOk');
 }
 
 function formaterNombre(valeur) {
