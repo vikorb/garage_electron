@@ -11,9 +11,23 @@ export function renderLayout() {
           <p>Gestion des véhicules, réparations, interventions et factures.</p>
         </div>
 
-        <button id="btn-ouvrir-ajout-voiture" type="button">
-          Nouvelle voiture
-        </button>
+        <div class="top-actions">
+          <div class="theme-control">
+            <span class="theme-control-label">Apparence</span>
+
+            <div class="theme-select-wrap">
+              <select id="theme-select" aria-label="Choisir le thème de l'application">
+                <option value="system">Système</option>
+                <option value="dark">Sombre</option>
+                <option value="light">Clair</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btn-ouvrir-ajout-voiture" type="button" class="btn-primary-header">
+            + Nouvelle voiture
+          </button>
+        </div>
       </header>
 
       <p id="preload-status">Vérification du preload...</p>
@@ -247,7 +261,14 @@ export function renderLayout() {
 
           <div>
             <label for="intervention-prix">Montant HT *</label>
-            <input type="number" id="intervention-prix" min="0" step="0.01" placeholder="Ex : 120" required />
+            <input
+              type="number"
+              id="intervention-prix"
+              min="0"
+              step="0.01"
+              placeholder="Ex : 120"
+              required
+            />
           </div>
 
           <div class="form-full form-actions">

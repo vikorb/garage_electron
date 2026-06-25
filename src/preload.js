@@ -5,11 +5,19 @@ function exposerEcouteurMenu(canal, callback) {
     return;
   }
 
-  const listener = () => {
+  ipcRenderer.on(canal, () => {
     callback();
-  };
+  });
+}
 
-  ipcRenderer.on(canal, listener);
+function exposerEcouteurAvecPayload(canal, callback) {
+  if (typeof callback !== 'function') {
+    return;
+  }
+
+  ipcRenderer.on(canal, (event, payload) => {
+    callback(payload);
+  });
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -18,6 +26,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   obtenirCheminBase: () =>
     ipcRenderer.invoke('systeme:chemin-base'),
+
+  obtenirTheme: () =>
+    ipcRenderer.invoke('theme:obtenir'),
+
+  definirTheme: (themeSource) =>
+    ipcRenderer.invoke('theme:definir', themeSource),
+
+  ecouterThemeMisAJour: (callback) =>
+    exposerEcouteurAvecPayload('theme:mis-a-jour', callback),
 
   confirmerAction: (options) =>
     ipcRenderer.invoke('dialog:confirmation', options),

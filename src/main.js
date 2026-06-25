@@ -8,7 +8,8 @@ const {
   dialog,
   Notification,
   shell,
-  Menu
+  Menu,
+  nativeTheme
 } = require('electron');
 
 const {
@@ -46,6 +47,94 @@ function envoyerActionAuRenderer(canal) {
   mainWindow.webContents.send(canal);
 }
 
+function obtenirThemeCourant() {
+  return {
+    themeSource: nativeTheme.themeSource,
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+  };
+}
+
+function envoyerThemeAuRenderer() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send('theme:mis-a-jour', obtenirThemeCourant());
+}
+
+function definirThemeSource(themeSource) {
+  const themesAutorises = ['system', 'light', 'dark'];
+
+  if (!themesAutorises.includes(themeSource)) {
+    return obtenirThemeCourant();
+  }
+
+  nativeTheme.themeSource = themeSource;
+  sauvegarderTheme(themeSource);
+
+  createApplicationMenu();
+  envoyerThemeAuRenderer();
+
+  return obtenirThemeCourant();
+}
+
+function getThemePreferencesPath() {
+  return path.join(app.getPath('userData'), 'theme-preferences.json');
+}
+
+function lireThemeSauvegarde() {
+  const themesAutorises = ['system', 'light', 'dark'];
+
+  try {
+    const chemin = getThemePreferencesPath();
+
+    if (!fs.existsSync(chemin)) {
+      return 'system';
+    }
+
+    const contenu = fs.readFileSync(chemin, 'utf-8');
+    const preferences = JSON.parse(contenu);
+
+    if (themesAutorises.includes(preferences.themeSource)) {
+      return preferences.themeSource;
+    }
+
+    return 'system';
+  } catch (error) {
+    console.warn('Impossible de lire le thème sauvegardé :', error);
+    return 'system';
+  }
+}
+
+function sauvegarderTheme(themeSource) {
+  try {
+    const chemin = getThemePreferencesPath();
+
+    fs.mkdirSync(path.dirname(chemin), {
+      recursive: true
+    });
+
+    fs.writeFileSync(
+      chemin,
+      JSON.stringify(
+        {
+          themeSource,
+          updated_at: new Date().toISOString()
+        },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+  } catch (error) {
+    console.warn('Impossible de sauvegarder le thème :', error);
+  }
+}
+
+function initialiserThemeDepuisCache() {
+  nativeTheme.themeSource = lireThemeSauvegarde();
+}
+
 function createApplicationMenu() {
   const isMac = process.platform === 'darwin';
 
@@ -65,7 +154,6 @@ function createApplicationMenu() {
           label: 'Nouvelle voiture',
           accelerator: 'CmdOrCtrl+N',
           click: () => {
-            // Le menu est côté Main. On envoie donc une action au Renderer.
             envoyerActionAuRenderer('menu:nouvelle-voiture');
           }
         },
@@ -93,6 +181,36 @@ function createApplicationMenu() {
               }
             ]
           : [])
+      ]
+    },
+
+    {
+      label: 'Apparence',
+      submenu: [
+        {
+          label: 'Suivre le système',
+          type: 'radio',
+          checked: nativeTheme.themeSource === 'system',
+          click: () => {
+            definirThemeSource('system');
+          }
+        },
+        {
+          label: 'Mode sombre',
+          type: 'radio',
+          checked: nativeTheme.themeSource === 'dark',
+          click: () => {
+            definirThemeSource('dark');
+          }
+        },
+        {
+          label: 'Mode clair',
+          type: 'radio',
+          checked: nativeTheme.themeSource === 'light',
+          click: () => {
+            definirThemeSource('light');
+          }
+        }
       ]
     },
 
@@ -133,6 +251,10 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    envoyerThemeAuRenderer();
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -142,6 +264,14 @@ function createWindow() {
 
 ipcMain.handle('systeme:chemin-base', () => {
   return getDatabasePath();
+});
+
+ipcMain.handle('theme:obtenir', () => {
+  return obtenirThemeCourant();
+});
+
+ipcMain.handle('theme:definir', (event, themeSource) => {
+  return definirThemeSource(themeSource);
 });
 
 ipcMain.handle('dialog:confirmation', async (event, options) => {
@@ -257,8 +387,13 @@ ipcMain.handle('notifications:envoyer', (event, notification) => {
 
 app.whenReady().then(() => {
   initialiserBase();
+  initialiserThemeDepuisCache();
   createApplicationMenu();
   createWindow();
+
+  nativeTheme.on('updated', () => {
+    envoyerThemeAuRenderer();
+  });
 
   console.log('Base SQLite :', getDatabasePath());
 });

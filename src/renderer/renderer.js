@@ -1,5 +1,6 @@
 import { renderLayout } from './modules/layout.js';
 import { initUi, afficherToast } from './modules/ui.js';
+import { initTheme } from './modules/theme.js';
 
 import {
   initGaragePage,
@@ -21,6 +22,7 @@ import {
 
 renderLayout();
 initUi();
+initTheme();
 
 const preloadStatus = document.getElementById('preload-status');
 
