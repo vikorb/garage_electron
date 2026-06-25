@@ -292,8 +292,8 @@ ipcMain.handle('dialog:confirmation', async (event, options) => {
   };
 });
 
-ipcMain.handle('voitures:lister', () => {
-  return listerVoitures();
+ipcMain.handle('voitures:lister', (event, filtres = {}) => {
+  return listerVoitures(filtres);
 });
 
 ipcMain.handle('voitures:ajouter', (event, donneesVoiture) => {

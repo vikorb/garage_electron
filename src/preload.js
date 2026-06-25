@@ -39,8 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   confirmerAction: (options) =>
     ipcRenderer.invoke('dialog:confirmation', options),
 
-  listerVoitures: () =>
-    ipcRenderer.invoke('voitures:lister'),
+  listerVoitures: (filtres = {}) =>
+    ipcRenderer.invoke('voitures:lister', filtres),
 
   ajouterVoiture: (donneesVoiture) =>
     ipcRenderer.invoke('voitures:ajouter', donneesVoiture),

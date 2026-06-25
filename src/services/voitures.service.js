@@ -38,8 +38,56 @@ function validerDonneesVoiture(donneesVoiture) {
   };
 }
 
-function listerVoitures() {
+function construireFiltresSql(filtres = {}) {
+  const conditions = [];
+  const parametres = [];
+
+  const recherche = String(filtres.recherche || '').trim().toLowerCase();
+  const statut = filtres.statut;
+
+  if (statut && statut !== 'tous') {
+    const statutNombre = Number(statut);
+
+    if (STATUTS_VALIDES.includes(statutNombre)) {
+      conditions.push('statut = ?');
+      parametres.push(statutNombre);
+    }
+  }
+
+  if (recherche) {
+    const rechercheLike = `%${recherche}%`;
+
+    conditions.push(`
+      (
+        CAST(id AS TEXT) LIKE ?
+        OR LOWER(immatriculation) LIKE ?
+        OR LOWER(marque) LIKE ?
+        OR LOWER(modele) LIKE ?
+        OR LOWER(nom_client) LIKE ?
+        OR LOWER(description) LIKE ?
+      )
+    `);
+
+    parametres.push(
+      rechercheLike,
+      rechercheLike,
+      rechercheLike,
+      rechercheLike,
+      rechercheLike,
+      rechercheLike
+    );
+  }
+
+  return {
+    where: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+    parametres
+  };
+}
+
+function listerVoitures(filtres = {}) {
   const db = getDb();
+
+  const { where, parametres } = construireFiltresSql(filtres);
 
   return db.prepare(`
     SELECT
@@ -54,8 +102,9 @@ function listerVoitures() {
       created_at,
       updated_at
     FROM voitures
+    ${where}
     ORDER BY id DESC
-  `).all();
+  `).all(...parametres);
 }
 
 function trouverVoitureParId(id) {

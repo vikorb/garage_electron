@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { formaterPrix, normaliserTexte } from './utils.js';
+import { formaterPrix } from './utils.js';
 import {
   afficherToast,
   notifierApplication,
@@ -24,6 +24,7 @@ let rechercheVoituresInput = null;
 let filtreStatutSelect = null;
 
 let actions = {};
+let rechercheTimer = null;
 
 export function initGaragePage(options) {
   actions = options;
@@ -47,28 +48,34 @@ export function initGaragePage(options) {
     actions.ouvrirAjoutVoiture();
   });
 
-  btnRecharger.addEventListener('click', afficherVoitures);
+  btnRecharger.addEventListener('click', async () => {
+    await afficherVoitures();
+    afficherToast('Données rechargées.', 'info');
+  });
 
   btnReinitialiserFiltres.addEventListener('click', () => {
     reinitialiserFiltres(true);
   });
 
-  rechercheVoituresInput.addEventListener('input', afficherVoituresDepuisCache);
-  filtreStatutSelect.addEventListener('change', afficherVoituresDepuisCache);
+  rechercheVoituresInput.addEventListener('input', programmerRechercheSql);
+  filtreStatutSelect.addEventListener('change', afficherVoitures);
 
   listeVoituresElement.addEventListener('click', gererClicListeVoitures);
 }
 
 export async function afficherVoitures() {
   try {
-    const voitures = await window.electronAPI.listerVoitures();
+    const filtres = obtenirFiltresCourants();
+
+    const voitures = await window.electronAPI.listerVoitures(filtres);
     const totaux = await window.electronAPI.calculerTotauxParVoiture();
 
     state.voituresCourantes = voitures;
     state.totauxInterventionsParVoiture = totaux;
 
-    await mettreAJourDashboard(voitures);
-    afficherVoituresDepuisCache();
+    afficherVoituresDepuisResultatsSql();
+
+    await mettreAJourDashboardGlobal();
   } catch (error) {
     console.error('Erreur lors du chargement des voitures :', error);
 
@@ -83,71 +90,66 @@ export async function afficherVoitures() {
   }
 }
 
-export function reinitialiserFiltres(afficherMessage = false) {
+export async function reinitialiserFiltres(afficherMessage = false) {
   rechercheVoituresInput.value = '';
   filtreStatutSelect.value = 'tous';
 
-  afficherVoituresDepuisCache();
+  await afficherVoitures();
 
   if (afficherMessage) {
     afficherToast('Filtres réinitialisés.', 'info');
   }
 }
 
-async function mettreAJourDashboard(voitures) {
-  dashboardTotalVoitures.textContent = voitures.length;
-  dashboardRecu.textContent = voitures.filter((voiture) => Number(voiture.statut) === 1).length;
-  dashboardReparation.textContent = voitures.filter((voiture) => Number(voiture.statut) === 2).length;
-  dashboardPrete.textContent = voitures.filter((voiture) => Number(voiture.statut) === 3).length;
-  dashboardLivre.textContent = voitures.filter((voiture) => Number(voiture.statut) === 4).length;
+function obtenirFiltresCourants() {
+  return {
+    recherche: rechercheVoituresInput.value,
+    statut: filtreStatutSelect.value
+  };
+}
 
+function programmerRechercheSql() {
+  clearTimeout(rechercheTimer);
+
+  rechercheTimer = setTimeout(() => {
+    afficherVoitures();
+  }, 250);
+}
+
+async function mettreAJourDashboardGlobal() {
   try {
+    const toutesLesVoitures = await window.electronAPI.listerVoitures({
+      recherche: '',
+      statut: 'tous'
+    });
+
+    dashboardTotalVoitures.textContent = toutesLesVoitures.length;
+    dashboardRecu.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 1).length;
+    dashboardReparation.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 2).length;
+    dashboardPrete.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 3).length;
+    dashboardLivre.textContent = toutesLesVoitures.filter((voiture) => Number(voiture.statut) === 4).length;
+
     const resultat = await window.electronAPI.calculerTotalGlobalInterventions();
 
     dashboardTotalInterventions.textContent = formaterPrix(resultat.total_ht);
     dashboardTotalReparations.textContent = formaterPrix(resultat.total_ttc);
   } catch (error) {
-    console.error('Erreur total interventions :', error);
+    console.error('Erreur dashboard global :', error);
 
     dashboardTotalInterventions.textContent = 'Erreur';
     dashboardTotalReparations.textContent = 'Erreur';
   }
 }
 
-function filtrerVoitures() {
-  const recherche = normaliserTexte(rechercheVoituresInput.value);
-  const statutFiltre = filtreStatutSelect.value;
-
-  return state.voituresCourantes.filter((voiture) => {
-    const correspondStatut =
-      statutFiltre === 'tous' || Number(voiture.statut) === Number(statutFiltre);
-
-    const texteRecherche = [
-      voiture.id,
-      voiture.immatriculation,
-      voiture.marque,
-      voiture.modele,
-      voiture.nom_client,
-      voiture.description
-    ]
-      .map(normaliserTexte)
-      .join(' ');
-
-    const correspondRecherche = !recherche || texteRecherche.includes(recherche);
-
-    return correspondStatut && correspondRecherche;
-  });
-}
-
-function afficherVoituresDepuisCache() {
-  const voitures = filtrerVoitures();
+function afficherVoituresDepuisResultatsSql() {
+  const voitures = state.voituresCourantes;
 
   listeVoituresElement.innerHTML = '';
 
   if (voitures.length === 0) {
     const li = document.createElement('li');
     li.className = 'voiture-card empty-card';
-    li.textContent = 'Aucune voiture ne correspond à la recherche.';
+    li.textContent = 'Aucune voiture ne correspond à la recherche SQL.';
     listeVoituresElement.appendChild(li);
     return;
   }
