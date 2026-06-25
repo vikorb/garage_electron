@@ -9,7 +9,9 @@ const {
   Notification,
   shell,
   Menu,
-  nativeTheme
+  nativeTheme,
+  Tray,
+  nativeImage
 } = require('electron');
 
 const {
@@ -42,44 +44,31 @@ const {
 } = require('./services/meteo.service');
 
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
 
-function envoyerActionAuRenderer(canal) {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return;
+function getIconPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icon.png');
   }
 
-  mainWindow.webContents.send(canal);
+  return path.join(__dirname, '..', 'build', 'icon.png');
 }
 
-function obtenirThemeCourant() {
-  return {
-    themeSource: nativeTheme.themeSource,
-    shouldUseDarkColors: nativeTheme.shouldUseDarkColors
-  };
-}
+function getTrayImage() {
+  const image = nativeImage.createFromPath(getIconPath());
 
-function envoyerThemeAuRenderer() {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return;
+  if (image.isEmpty()) {
+    console.warn('Icône Tray introuvable, icône vide utilisée.');
+    return nativeImage.createEmpty();
   }
 
-  mainWindow.webContents.send('theme:mis-a-jour', obtenirThemeCourant());
-}
+  const size = process.platform === 'darwin' ? 18 : 22;
 
-function definirThemeSource(themeSource) {
-  const themesAutorises = ['system', 'light', 'dark'];
-
-  if (!themesAutorises.includes(themeSource)) {
-    return obtenirThemeCourant();
-  }
-
-  nativeTheme.themeSource = themeSource;
-  sauvegarderTheme(themeSource);
-
-  createApplicationMenu();
-  envoyerThemeAuRenderer();
-
-  return obtenirThemeCourant();
+  return image.resize({
+    width: size,
+    height: size
+  });
 }
 
 function getThemePreferencesPath() {
@@ -139,6 +128,85 @@ function initialiserThemeDepuisCache() {
   nativeTheme.themeSource = lireThemeSauvegarde();
 }
 
+function obtenirThemeCourant() {
+  return {
+    themeSource: nativeTheme.themeSource,
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+  };
+}
+
+function envoyerThemeAuRenderer() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send('theme:mis-a-jour', obtenirThemeCourant());
+}
+
+function mettreAJourTrayMenu() {
+  if (!tray || tray.isDestroyed()) {
+    return;
+  }
+
+  tray.setContextMenu(createTrayContextMenu());
+}
+
+function definirThemeSource(themeSource) {
+  const themesAutorises = ['system', 'light', 'dark'];
+
+  if (!themesAutorises.includes(themeSource)) {
+    return obtenirThemeCourant();
+  }
+
+  nativeTheme.themeSource = themeSource;
+  sauvegarderTheme(themeSource);
+
+  createApplicationMenu();
+  mettreAJourTrayMenu();
+  envoyerThemeAuRenderer();
+
+  return obtenirThemeCourant();
+}
+
+function afficherFenetrePrincipale() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  }
+
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.show();
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function envoyerActionAuRenderer(canal) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  }
+
+  afficherFenetrePrincipale();
+
+  const envoyer = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+
+    mainWindow.webContents.send(canal);
+  };
+
+  if (mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.once('did-finish-load', envoyer);
+  } else {
+    envoyer();
+  }
+}
+
 function createApplicationMenu() {
   const isMac = process.platform === 'darwin';
 
@@ -188,7 +256,11 @@ function createApplicationMenu() {
         ...(!isMac
           ? [
               {
-                role: 'quit'
+                label: 'Quitter',
+                click: () => {
+                  isQuitting = true;
+                  app.quit();
+                }
               }
             ]
           : [])
@@ -242,6 +314,107 @@ function createApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+function createTrayContextMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: 'Garage Manager',
+      click: () => {
+        afficherFenetrePrincipale();
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'Ouvrir l’application',
+      click: () => {
+        afficherFenetrePrincipale();
+      }
+    },
+    {
+      label: '+ Nouvelle voiture',
+      click: () => {
+        envoyerActionAuRenderer('menu:nouvelle-voiture');
+      }
+    },
+    {
+      label: 'Actualiser météo',
+      click: () => {
+        envoyerActionAuRenderer('menu:actualiser-meteo');
+      }
+    },
+    {
+      label: 'Recharger les données',
+      click: () => {
+        envoyerActionAuRenderer('menu:recharger');
+      }
+    },
+    {
+      label: 'Réinitialiser les filtres',
+      click: () => {
+        envoyerActionAuRenderer('menu:reinitialiser-filtres');
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'Apparence',
+      submenu: [
+        {
+          label: 'Suivre le système',
+          type: 'radio',
+          checked: nativeTheme.themeSource === 'system',
+          click: () => {
+            definirThemeSource('system');
+          }
+        },
+        {
+          label: 'Mode sombre',
+          type: 'radio',
+          checked: nativeTheme.themeSource === 'dark',
+          click: () => {
+            definirThemeSource('dark');
+          }
+        },
+        {
+          label: 'Mode clair',
+          type: 'radio',
+          checked: nativeTheme.themeSource === 'light',
+          click: () => {
+            definirThemeSource('light');
+          }
+        }
+      ]
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'Quitter',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+}
+
+function createTray() {
+  if (tray) {
+    return;
+  }
+
+  tray = new Tray(getTrayImage());
+
+  tray.setToolTip('Garage Manager');
+  tray.setContextMenu(createTrayContextMenu());
+
+  tray.on('click', () => {
+    afficherFenetrePrincipale();
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -264,6 +437,19 @@ function createWindow() {
 
   mainWindow.webContents.on('did-finish-load', () => {
     envoyerThemeAuRenderer();
+  });
+
+  mainWindow.on('close', (event) => {
+    if (isQuitting) {
+      return;
+    }
+
+    event.preventDefault();
+    mainWindow.hide();
+
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.hide();
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -343,10 +529,6 @@ ipcMain.handle('interventions:totaux-par-voiture', () => {
   return calculerTotauxInterventionsParVoiture();
 });
 
-ipcMain.handle('meteo:garage', async () => {
-  return recupererMeteoGarage();
-});
-
 ipcMain.handle('factures:exporter', async (event, voitureId) => {
   const facture = genererFactureHtml(voitureId);
 
@@ -400,11 +582,16 @@ ipcMain.handle('notifications:envoyer', (event, notification) => {
   };
 });
 
+ipcMain.handle('meteo:garage', async () => {
+  return recupererMeteoGarage();
+});
+
 app.whenReady().then(() => {
   initialiserBase();
   initialiserThemeDepuisCache();
   createApplicationMenu();
   createWindow();
+  createTray();
 
   nativeTheme.on('updated', () => {
     envoyerThemeAuRenderer();
@@ -413,14 +600,22 @@ app.whenReady().then(() => {
   console.log('Base SQLite :', getDatabasePath());
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+app.on('will-quit', () => {
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
   }
 });
 
+app.on('window-all-closed', () => {
+  // On ne quitte pas automatiquement : l'application reste disponible dans le Tray.
+});
+
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+  if (!isQuitting) {
+    afficherFenetrePrincipale();
   }
 });
