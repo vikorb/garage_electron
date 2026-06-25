@@ -339,46 +339,187 @@ function definirLangue(language) {
 
 function createApplicationMenu() {
   const isMac = process.platform === 'darwin';
+  const isFr = currentLanguage === 'fr';
+
+  const labels = {
+    garage: isFr ? 'Garage' : 'Garage',
+    vehicles: isFr ? 'Véhicules' : 'Vehicles',
+    data: isFr ? 'Données' : 'Data',
+    invoice: isFr ? 'Factures' : 'Invoices',
+    tools: isFr ? 'Outils' : 'Tools',
+    display: isFr ? 'Affichage' : 'Display',
+    preferences: isFr ? 'Préférences' : 'Preferences',
+
+    newCar: isFr ? 'Nouvelle voiture' : 'New car',
+    reload: isFr ? 'Recharger les données' : 'Reload data',
+    resetFilters: isFr ? 'Réinitialiser les filtres' : 'Reset filters',
+    refreshWeather: isFr ? 'Actualiser la météo' : 'Refresh weather',
+
+    appearance: isFr ? 'Apparence' : 'Appearance',
+    systemTheme: isFr ? 'Suivre le système' : 'Follow system',
+    darkTheme: isFr ? 'Mode sombre' : 'Dark mode',
+    lightTheme: isFr ? 'Mode clair' : 'Light mode',
+
+    language: isFr ? 'Langue' : 'Language',
+    french: isFr ? 'Français' : 'French',
+    english: isFr ? 'Anglais' : 'English',
+
+    openApp: isFr ? 'Ouvrir l’application' : 'Open app',
+    quit: isFr ? 'Quitter' : 'Quit'
+  };
 
   const template = [
     ...(isMac
       ? [
           {
-            role: 'appMenu'
+            label: 'Garage Manager',
+            submenu: [
+              {
+                label: labels.openApp,
+                click: () => {
+                  afficherFenetrePrincipale();
+                }
+              },
+              {
+                type: 'separator'
+              },
+              {
+                role: 'about'
+              },
+              {
+                type: 'separator'
+              },
+              {
+                label: labels.preferences,
+                submenu: [
+                  {
+                    label: labels.appearance,
+                    submenu: [
+                      {
+                        label: labels.systemTheme,
+                        type: 'radio',
+                        checked: nativeTheme.themeSource === 'system',
+                        click: () => {
+                          definirThemeSource('system');
+                        }
+                      },
+                      {
+                        label: labels.darkTheme,
+                        type: 'radio',
+                        checked: nativeTheme.themeSource === 'dark',
+                        click: () => {
+                          definirThemeSource('dark');
+                        }
+                      },
+                      {
+                        label: labels.lightTheme,
+                        type: 'radio',
+                        checked: nativeTheme.themeSource === 'light',
+                        click: () => {
+                          definirThemeSource('light');
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    label: labels.language,
+                    submenu: [
+                      {
+                        label: labels.french,
+                        type: 'radio',
+                        checked: currentLanguage === 'fr',
+                        click: () => {
+                          definirLangue('fr');
+                        }
+                      },
+                      {
+                        label: labels.english,
+                        type: 'radio',
+                        checked: currentLanguage === 'en',
+                        click: () => {
+                          definirLangue('en');
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                type: 'separator'
+              },
+              {
+                role: 'hide'
+              },
+              {
+                role: 'hideOthers'
+              },
+              {
+                role: 'unhide'
+              },
+              {
+                type: 'separator'
+              },
+              {
+                label: labels.quit,
+                accelerator: 'Cmd+Q',
+                click: () => {
+                  isQuitting = true;
+                  app.quit();
+                }
+              }
+            ]
           }
         ]
       : []),
 
     {
-      label: 'Garage',
+      label: labels.garage,
       submenu: [
         {
-          label: 'Nouvelle voiture',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => {
-            envoyerActionAuRenderer('menu:nouvelle-voiture');
-          }
+          label: labels.vehicles,
+          submenu: [
+            {
+              label: labels.newCar,
+              accelerator: 'CmdOrCtrl+N',
+              click: () => {
+                envoyerActionAuRenderer('menu:nouvelle-voiture');
+              }
+            }
+          ]
         },
         {
-          label: 'Recharger les données',
-          accelerator: 'F5',
-          click: () => {
-            envoyerActionAuRenderer('menu:recharger');
-          }
+          label: labels.data,
+          submenu: [
+            {
+              label: labels.reload,
+              accelerator: 'F5',
+              click: () => {
+                envoyerActionAuRenderer('menu:recharger');
+              }
+            },
+            {
+              label: labels.resetFilters,
+              accelerator: 'CmdOrCtrl+Shift+F',
+              click: () => {
+                envoyerActionAuRenderer('menu:reinitialiser-filtres');
+              }
+            }
+          ]
         },
         {
-          label: 'Actualiser la météo',
-          accelerator: 'CmdOrCtrl+M',
-          click: () => {
-            envoyerActionAuRenderer('menu:actualiser-meteo');
-          }
-        },
-        {
-          label: 'Réinitialiser les filtres',
-          accelerator: 'CmdOrCtrl+Shift+F',
-          click: () => {
-            envoyerActionAuRenderer('menu:reinitialiser-filtres');
-          }
+          label: labels.invoice,
+          submenu: [
+            {
+              label: isFr ? 'Exporter depuis une voiture' : 'Export from a car',
+              enabled: false
+            },
+            {
+              label: isFr
+                ? 'Utilisez le bouton Facture sur une carte véhicule'
+                : 'Use the Invoice button on a vehicle card',
+              enabled: false
+            }
+          ]
         },
         {
           type: 'separator'
@@ -386,7 +527,8 @@ function createApplicationMenu() {
         ...(!isMac
           ? [
               {
-                label: 'Quitter',
+                label: labels.quit,
+                accelerator: 'Alt+F4',
                 click: () => {
                   isQuitting = true;
                   app.quit();
@@ -398,53 +540,91 @@ function createApplicationMenu() {
     },
 
     {
-      label: 'Apparence',
+      label: labels.display,
       submenu: [
         {
-          label: 'Suivre le système',
-          type: 'radio',
-          checked: nativeTheme.themeSource === 'system',
-          click: () => {
-            definirThemeSource('system');
-          }
+          label: labels.appearance,
+          submenu: [
+            {
+              label: labels.systemTheme,
+              type: 'radio',
+              checked: nativeTheme.themeSource === 'system',
+              click: () => {
+                definirThemeSource('system');
+              }
+            },
+            {
+              label: labels.darkTheme,
+              type: 'radio',
+              checked: nativeTheme.themeSource === 'dark',
+              click: () => {
+                definirThemeSource('dark');
+              }
+            },
+            {
+              label: labels.lightTheme,
+              type: 'radio',
+              checked: nativeTheme.themeSource === 'light',
+              click: () => {
+                definirThemeSource('light');
+              }
+            }
+          ]
         },
         {
-          label: 'Mode sombre',
-          type: 'radio',
-          checked: nativeTheme.themeSource === 'dark',
-          click: () => {
-            definirThemeSource('dark');
-          }
+          type: 'separator'
         },
         {
-          label: 'Mode clair',
-          type: 'radio',
-          checked: nativeTheme.themeSource === 'light',
-          click: () => {
-            definirThemeSource('light');
-          }
+          label: labels.language,
+          submenu: [
+            {
+              label: labels.french,
+              type: 'radio',
+              checked: currentLanguage === 'fr',
+              click: () => {
+                definirLangue('fr');
+              }
+            },
+            {
+              label: labels.english,
+              type: 'radio',
+              checked: currentLanguage === 'en',
+              click: () => {
+                definirLangue('en');
+              }
+            }
+          ]
         }
       ]
     },
 
     {
-      label: currentLanguage === 'fr' ? 'Langue' : 'Language',
+      label: labels.tools,
       submenu: [
         {
-          label: currentLanguage === 'fr' ? 'Français' : 'French',
-          type: 'radio',
-          checked: currentLanguage === 'fr',
+          label: labels.refreshWeather,
+          accelerator: 'CmdOrCtrl+M',
           click: () => {
-            definirLangue('fr');
+            envoyerActionAuRenderer('menu:actualiser-meteo');
           }
         },
         {
-          label: currentLanguage === 'fr' ? 'Anglais' : 'English',
-          type: 'radio',
-          checked: currentLanguage === 'en',
-          click: () => {
-            definirLangue('en');
-          }
+          type: 'separator'
+        },
+        {
+          label: isFr ? 'Informations techniques' : 'Technical information',
+          submenu: [
+            {
+              label: isFr ? 'Base SQLite dans userData' : 'SQLite database in userData',
+              click: () => {
+                dialog.showMessageBox(mainWindow, {
+                  type: 'info',
+                  title: isFr ? 'Base de données' : 'Database',
+                  message: getDatabasePath()
+                });
+              }
+            }
+          ]
         }
       ]
     },
@@ -467,9 +647,37 @@ function createApplicationMenu() {
 }
 
 function createTrayContextMenu() {
+  const isFr = currentLanguage === 'fr';
+
+  const labels = {
+    title: 'Garage Manager',
+    open: isFr ? 'Ouvrir l’application' : 'Open app',
+    newCar: isFr ? 'Nouvelle voiture' : 'New car',
+    reload: isFr ? 'Recharger les données' : 'Reload data',
+    resetFilters: isFr ? 'Réinitialiser les filtres' : 'Reset filters',
+    weather: isFr ? 'Actualiser la météo' : 'Refresh weather',
+    quickActions: isFr ? 'Actions rapides' : 'Quick actions',
+    preferences: isFr ? 'Préférences' : 'Preferences',
+    appearance: isFr ? 'Apparence' : 'Appearance',
+    language: isFr ? 'Langue' : 'Language',
+    systemTheme: isFr ? 'Suivre le système' : 'Follow system',
+    darkTheme: isFr ? 'Mode sombre' : 'Dark mode',
+    lightTheme: isFr ? 'Mode clair' : 'Light mode',
+    french: isFr ? 'Français' : 'French',
+    english: isFr ? 'Anglais' : 'English',
+    quit: isFr ? 'Quitter' : 'Quit'
+  };
+
   return Menu.buildFromTemplate([
     {
-      label: 'Garage Manager',
+      label: labels.title,
+      enabled: false
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: labels.open,
       click: () => {
         afficherFenetrePrincipale();
       }
@@ -478,85 +686,86 @@ function createTrayContextMenu() {
       type: 'separator'
     },
     {
-      label: 'Ouvrir l’application',
-      click: () => {
-        afficherFenetrePrincipale();
-      }
-    },
-    {
-      label: '+ Nouvelle voiture',
-      click: () => {
-        envoyerActionAuRenderer('menu:nouvelle-voiture');
-      }
-    },
-    {
-      label: 'Actualiser météo',
-      click: () => {
-        envoyerActionAuRenderer('menu:actualiser-meteo');
-      }
-    },
-    {
-      label: 'Recharger les données',
-      click: () => {
-        envoyerActionAuRenderer('menu:recharger');
-      }
-    },
-    {
-      label: 'Réinitialiser les filtres',
-      click: () => {
-        envoyerActionAuRenderer('menu:reinitialiser-filtres');
-      }
-    },
-    {
-      type: 'separator'
-    },
-    {
-      label: 'Apparence',
+      label: labels.quickActions,
       submenu: [
         {
-          label: 'Suivre le système',
-          type: 'radio',
-          checked: nativeTheme.themeSource === 'system',
+          label: labels.newCar,
           click: () => {
-            definirThemeSource('system');
+            envoyerActionAuRenderer('menu:nouvelle-voiture');
           }
         },
         {
-          label: 'Mode sombre',
-          type: 'radio',
-          checked: nativeTheme.themeSource === 'dark',
+          label: labels.reload,
           click: () => {
-            definirThemeSource('dark');
+            envoyerActionAuRenderer('menu:recharger');
           }
         },
         {
-          label: 'Mode clair',
-          type: 'radio',
-          checked: nativeTheme.themeSource === 'light',
+          label: labels.resetFilters,
           click: () => {
-            definirThemeSource('light');
+            envoyerActionAuRenderer('menu:reinitialiser-filtres');
+          }
+        },
+        {
+          label: labels.weather,
+          click: () => {
+            envoyerActionAuRenderer('menu:actualiser-meteo');
           }
         }
       ]
     },
     {
-      label: currentLanguage === 'fr' ? 'Langue' : 'Language',
+      label: labels.preferences,
       submenu: [
         {
-          label: currentLanguage === 'fr' ? 'Français' : 'French',
-          type: 'radio',
-          checked: currentLanguage === 'fr',
-          click: () => {
-            definirLangue('fr');
-          }
+          label: labels.appearance,
+          submenu: [
+            {
+              label: labels.systemTheme,
+              type: 'radio',
+              checked: nativeTheme.themeSource === 'system',
+              click: () => {
+                definirThemeSource('system');
+              }
+            },
+            {
+              label: labels.darkTheme,
+              type: 'radio',
+              checked: nativeTheme.themeSource === 'dark',
+              click: () => {
+                definirThemeSource('dark');
+              }
+            },
+            {
+              label: labels.lightTheme,
+              type: 'radio',
+              checked: nativeTheme.themeSource === 'light',
+              click: () => {
+                definirThemeSource('light');
+              }
+            }
+          ]
         },
         {
-          label: currentLanguage === 'fr' ? 'Anglais' : 'English',
-          type: 'radio',
-          checked: currentLanguage === 'en',
-          click: () => {
-            definirLangue('en');
-          }
+          label: labels.language,
+          submenu: [
+            {
+              label: labels.french,
+              type: 'radio',
+              checked: currentLanguage === 'fr',
+              click: () => {
+                definirLangue('fr');
+              }
+            },
+            {
+              label: labels.english,
+              type: 'radio',
+              checked: currentLanguage === 'en',
+              click: () => {
+                definirLangue('en');
+              }
+            }
+          ]
         }
       ]
     },
@@ -564,7 +773,7 @@ function createTrayContextMenu() {
       type: 'separator'
     },
     {
-      label: 'Quitter',
+      label: labels.quit,
       click: () => {
         isQuitting = true;
         app.quit();

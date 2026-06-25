@@ -2,7 +2,29 @@
 
 Garage Manager est une application desktop développée avec Electron.
 
-Elle permet de gérer un petit garage automobile avec des voitures, des interventions, des statuts, un dashboard, une recherche, des filtres, des notifications, un export de facture et un packaging avec `electron-builder`.
+Elle permet de gérer un petit garage automobile avec des voitures, des interventions, des statuts, un dashboard, une recherche SQL, des filtres, des notifications, un export de facture, un thème clair/sombre, un changement de langue français/anglais, une météo externe, une icône Tray, une icône d’application personnalisée et un packaging avec `electron-builder`.
+
+---
+
+## Rendus visuels
+
+Le projet contient un dossier `img_rendu` avec des captures de l’application.
+
+Ce dossier sert à montrer :
+
+- l’interface principale ;
+- le dashboard ;
+- les cartes voitures ;
+- les modales ;
+- le thème sombre ;
+- le thème clair ;
+- le bouton de changement d’apparence ;
+- le bouton de changement de langue ;
+- le panneau météo ;
+- le menu Tray ;
+- l’icône de l’application.
+
+Sur certaines captures, l’icône du menu peut apparaître légèrement rosée. C’est normal : cette couleur vient du thème macOS utilisé sur la machine, et non d’un problème dans l’application.
 
 ---
 
@@ -17,6 +39,8 @@ L’objectif du projet est de comprendre le fonctionnement d’une application E
 - les services métier ;
 - le stockage local des données ;
 - l’utilisation d’API natives Electron ;
+- l’appel à une API externe ;
+- l’internationalisation ;
 - le packaging d’une application desktop.
 
 L’application respecte le principe suivant :
@@ -30,7 +54,7 @@ Renderer
 → SQLite dans userData
 ```
 
-Le Renderer ne lit jamais directement les fichiers ou la base de données.  
+Le Renderer ne lit jamais directement les fichiers ou la base de données.
 Il n’a pas accès directement à Node.js, `fs`, `path` ou `require`.
 
 ---
@@ -51,17 +75,26 @@ L’application permet de :
 - calculer la TVA ;
 - calculer le total TTC ;
 - calculer le total global du garage ;
-- rechercher une voiture ;
-- filtrer les voitures par statut ;
+- rechercher une voiture côté SQL ;
+- filtrer les voitures par statut côté SQL ;
 - réinitialiser les filtres ;
 - afficher un dashboard ;
 - exporter une facture HTML ;
+- choisir la langue de la facture avant export ;
 - afficher des notifications visuelles ;
 - tenter d’afficher des notifications système Electron ;
 - afficher des confirmations natives Electron ;
 - utiliser un menu natif avec raccourcis ;
+- utiliser une icône Tray avec un menu rapide ;
+- changer l’apparence de l’application ;
+- sauvegarder le thème choisi ;
+- changer la langue de l’application ;
+- sauvegarder la langue choisie ;
+- détecter la langue par défaut selon la locale du système ;
+- afficher une météo externe via Open-Meteo ;
 - stocker les données localement dans une base SQLite située dans `userData` ;
-- packager l’application avec `electron-builder`.
+- packager l’application avec `electron-builder` ;
+- utiliser une icône d’application personnalisée dans le build.
 
 ---
 
@@ -83,15 +116,19 @@ src/
 │  ├─ db.service.js
 │  ├─ voitures.service.js
 │  ├─ interventions.service.js
-│  └─ factures.service.js
+│  ├─ factures.service.js
+│  └─ meteo.service.js
 │
 ├─ renderer/
 │  ├─ modules/
 │  │  ├─ constants.js
 │  │  ├─ garage.page.js
+│  │  ├─ i18n.js
 │  │  ├─ interventions.modal.js
 │  │  ├─ layout.js
+│  │  ├─ meteo.panel.js
 │  │  ├─ state.js
+│  │  ├─ theme.js
 │  │  ├─ ui.js
 │  │  ├─ utils.js
 │  │  └─ voiture.modal.js
@@ -102,9 +139,15 @@ src/
 │
 ├─ main.js
 └─ preload.js
+
+build/
+└─ icon.png
+
+img_rendu/
+└─ captures de l’application
 ```
 
-Le dossier `src/data` peut servir de base de données de départ en développement.  
+Le dossier `src/data` peut servir de base de données de départ en développement.
 Les données réelles de l’application sont ensuite stockées dans SQLite, dans le dossier `userData`.
 
 ---
@@ -126,8 +169,14 @@ Il sert à :
 - accéder au système de fichiers ;
 - initialiser la base SQLite ;
 - créer le menu natif ;
+- créer l’icône Tray ;
 - gérer les confirmations natives ;
 - gérer les notifications système ;
+- gérer le thème clair/sombre ;
+- sauvegarder le thème dans `userData` ;
+- gérer la langue de l’application ;
+- sauvegarder la langue dans `userData` ;
+- appeler le service météo ;
 - exporter les factures.
 
 ---
@@ -146,14 +195,14 @@ Exemple :
 
 ```js
 contextBridge.exposeInMainWorld('electronAPI', {
-  listerVoitures: () => ipcRenderer.invoke('voitures:lister')
+  listerVoitures: (filtres = {}) => ipcRenderer.invoke('voitures:lister', filtres)
 });
 ```
 
 Le Renderer peut donc appeler :
 
 ```js
-window.electronAPI.listerVoitures()
+window.electronAPI.listerVoitures({ recherche: '', statut: 'tous' });
 ```
 
 Mais il ne peut pas utiliser directement :
@@ -188,6 +237,8 @@ Le fichier contient aussi une CSP :
 />
 ```
 
+L’appel à l’API météo est réalisé côté Main, donc le Renderer n’a pas besoin d’autoriser une connexion directe vers l’extérieur.
+
 ---
 
 ### `renderer/renderer.js`
@@ -197,7 +248,10 @@ Le fichier `renderer.js` est le point d’entrée côté interface.
 Il sert à :
 
 - initialiser le layout ;
-- initialiser les modules UI ;
+- initialiser l’UI ;
+- initialiser l’internationalisation ;
+- initialiser le thème ;
+- initialiser la météo ;
 - initialiser la page garage ;
 - initialiser les modales ;
 - brancher les actions du menu natif ;
@@ -212,11 +266,53 @@ Ce fichier génère la structure HTML principale de l’application.
 Il contient :
 
 - le header ;
+- le bouton d’apparence ;
+- le bouton de langue ;
+- le bouton `Nouvelle voiture` ;
 - le dashboard ;
+- le panneau météo ;
 - la page d’accueil garage ;
 - les modales voiture ;
 - les modales interventions ;
 - la modale de confirmation fallback.
+
+Le HTML utilise des clés de traduction avec `data-i18n`, `data-i18n-placeholder` et `data-i18n-aria`.
+
+---
+
+### `renderer/modules/i18n.js`
+
+Ce fichier gère l’internationalisation de l’application.
+
+Il contient :
+
+- les traductions françaises ;
+- les traductions anglaises ;
+- la fonction `t()` ;
+- la traduction automatique des éléments HTML ;
+- la mise à jour dynamique de l’interface quand la langue change.
+
+L’application supporte actuellement :
+
+```txt
+fr = français
+en = anglais
+```
+
+---
+
+### `renderer/modules/theme.js`
+
+Ce fichier gère le thème de l’application côté Renderer.
+
+Il permet de :
+
+- récupérer le thème courant ;
+- changer le thème depuis le select ;
+- appliquer le thème clair ou sombre sur le `body` ;
+- réagir quand le thème est changé depuis le menu natif ou le Tray.
+
+Le choix du thème est sauvegardé côté Main dans `userData`.
 
 ---
 
@@ -228,13 +324,14 @@ Il sert à :
 
 - afficher les voitures ;
 - afficher le dashboard ;
-- gérer la recherche ;
-- gérer les filtres ;
+- envoyer les critères de recherche au Main ;
+- gérer les filtres SQL ;
 - réinitialiser les filtres ;
 - déclencher la modification d’une voiture ;
 - déclencher l’ouverture des interventions ;
 - déclencher l’export de facture ;
-- déclencher la suppression d’une voiture.
+- déclencher la suppression d’une voiture ;
+- retraduire les cartes voiture quand la langue change.
 
 ---
 
@@ -247,7 +344,8 @@ Il permet de :
 - créer une voiture ;
 - modifier une voiture ;
 - détecter le passage au statut `Prête` ;
-- afficher une notification visuelle quand une voiture devient prête.
+- afficher une notification visuelle quand une voiture devient prête ;
+- utiliser les clés de langue pour les titres, messages et notifications.
 
 ---
 
@@ -261,7 +359,24 @@ Il permet de :
 - ajouter une intervention ;
 - modifier une intervention ;
 - supprimer une intervention ;
-- recalculer les totaux HT / TVA / TTC.
+- recalculer les totaux HT / TVA / TTC ;
+- retraduire les textes dynamiques quand la langue change.
+
+---
+
+### `renderer/modules/meteo.panel.js`
+
+Ce fichier gère l’affichage de la météo dans l’interface.
+
+Il permet de :
+
+- demander la météo au Main via IPC ;
+- afficher la température ;
+- afficher l’humidité ;
+- afficher le vent ;
+- afficher la probabilité de pluie ;
+- afficher un conseil métier adapté au garage ;
+- retraduire la météo et le conseil quand la langue change.
 
 ---
 
@@ -290,12 +405,15 @@ Le thème choisi est un style garage moderne :
 - fond noir ;
 - accents rouges ;
 - effets néon ;
+- thème clair blanc/crème avec rouge vif ;
 - cartes voiture ;
 - dashboard ;
 - boutons stylisés ;
 - badges de statut ;
 - modales cohérentes ;
-- notifications visuelles.
+- notifications visuelles ;
+- header moderne avec groupe `Apparence` / `Langue` / `Nouvelle voiture` ;
+- design responsive.
 
 ---
 
@@ -343,10 +461,10 @@ renderer
 → retour vers le Renderer
 ```
 
-Pour les actions envoyées depuis le menu natif vers la page, le Main utilise :
+Pour les actions envoyées depuis le menu natif ou le Tray vers la page, le Main utilise :
 
 ```js
-mainWindow.webContents.send(...)
+mainWindow.webContents.send(...);
 ```
 
 Puis le preload écoute l’événement et appelle une fonction du Renderer.
@@ -364,11 +482,31 @@ Puis le preload écoute l’événement et appelle une fonction du Renderer.
 
 ---
 
+### Thème
+
+| Action | Canal IPC | Paramètres | Retour |
+|---|---|---|---|
+| Obtenir le thème | `theme:obtenir` | Aucun | Thème courant |
+| Définir le thème | `theme:definir` | `system`, `light` ou `dark` | Thème courant |
+| Mise à jour du thème | `theme:mis-a-jour` | Aucun | Événement envoyé au Renderer |
+
+---
+
+### Langue
+
+| Action | Canal IPC | Paramètres | Retour |
+|---|---|---|---|
+| Obtenir la langue | `language:obtenir` | Aucun | Langue courante |
+| Définir la langue | `language:definir` | `fr` ou `en` | Langue courante |
+| Mise à jour de la langue | `language:mis-a-jour` | Aucun | Événement envoyé au Renderer |
+
+---
+
 ### Voitures
 
 | Action | Canal IPC | Paramètres | Retour |
 |---|---|---|---|
-| Lister les voitures | `voitures:lister` | Aucun | Tableau de voitures |
+| Lister les voitures | `voitures:lister` | Filtres recherche/statut | Tableau de voitures |
 | Ajouter une voiture | `voitures:ajouter` | Objet voiture | Voiture créée |
 | Modifier une voiture | `voitures:modifier` | ID + données voiture | Voiture modifiée |
 | Supprimer une voiture | `voitures:supprimer` | ID | Succès |
@@ -396,6 +534,15 @@ Puis le preload écoute l’événement et appelle une fonction du Renderer.
 
 ---
 
+### Météo
+
+| Action | Canal IPC | Paramètres | Retour |
+|---|---|---|---|
+| Obtenir la météo garage | `meteo:garage` | Aucun | Données météo |
+| Actualiser la météo depuis le menu | `menu:actualiser-meteo` | Aucun | Événement Renderer |
+
+---
+
 ### Notifications
 
 | Action | Canal IPC | Paramètres | Retour |
@@ -404,13 +551,14 @@ Puis le preload écoute l’événement et appelle une fonction du Renderer.
 
 ---
 
-### Menu natif
+### Menu natif et Tray
 
 | Action | Canal | Effet |
 |---|---|---|
 | Nouvelle voiture | `menu:nouvelle-voiture` | Ouvre la popup d’ajout |
 | Recharger les données | `menu:recharger` | Recharge la liste |
 | Réinitialiser les filtres | `menu:reinitialiser-filtres` | Vide recherche + filtre |
+| Actualiser la météo | `menu:actualiser-meteo` | Recharge le panneau météo |
 
 ---
 
@@ -493,10 +641,10 @@ Exemple :
 Les statuts disponibles sont :
 
 ```txt
-1 = Reçu
-2 = En réparation
-3 = Prête
-4 = Livré
+1 = Reçu / Received
+2 = En réparation / Repairing
+3 = Prête / Ready
+4 = Livré / Delivered
 ```
 
 Dans l’interface, chaque statut est affiché sous forme de badge coloré.
@@ -527,6 +675,52 @@ Cette solution permet de conserver les voitures et interventions :
 - sans dépendre du dossier src/data ;
 - sans écrire dans le dossier dist.
 ```
+
+---
+
+## Préférences utilisateur
+
+L’application sauvegarde aussi certaines préférences dans `userData`.
+
+### Thème
+
+Le thème est sauvegardé dans :
+
+```txt
+~/Library/Application Support/gestionnaire-garage/theme-preferences.json
+```
+
+Valeurs possibles :
+
+```txt
+system
+light
+dark
+```
+
+Au redémarrage, l’application recharge automatiquement le dernier thème choisi.
+
+### Langue
+
+La langue est sauvegardée dans :
+
+```txt
+~/Library/Application Support/gestionnaire-garage/language-preferences.json
+```
+
+Valeurs possibles :
+
+```txt
+fr
+en
+```
+
+Au premier lancement, la langue est détectée automatiquement :
+
+- français pour une locale française ou un pays francophone ;
+- anglais pour les autres cas.
+
+Après un choix utilisateur, la langue est conservée au prochain lancement.
 
 ---
 
@@ -602,6 +796,7 @@ Il contient notamment :
 - modification d’une voiture ;
 - suppression d’une voiture ;
 - validation des données ;
+- recherche et filtre côté SQL ;
 - requêtes préparées SQLite.
 
 ---
@@ -636,9 +831,30 @@ Il permet de générer une facture HTML à partir :
 - des interventions liées à cette voiture ;
 - du total HT ;
 - de la TVA ;
-- du total TTC.
+- du total TTC ;
+- de la langue choisie.
 
-La facture peut ensuite être exportée depuis l’application.
+La facture peut être générée en français ou en anglais.
+
+Avant l’export, l’application demande la langue de la facture. La langue actuelle de l’application est proposée par défaut.
+
+---
+
+## `meteo.service.js`
+
+Ce service gère l’appel à l’API météo externe.
+
+Il appelle Open-Meteo côté Main process afin d’éviter que le Renderer contacte directement une API externe.
+
+Il retourne :
+
+- la ville ;
+- la température ;
+- l’humidité ;
+- le vent ;
+- la pluie ;
+- le code météo ;
+- un conseil métier adapté au garage.
 
 ---
 
@@ -672,7 +888,7 @@ Le dashboard affiche :
 
 ---
 
-## Recherche et filtres
+## Recherche et filtres SQL
 
 L’interface permet de rechercher une voiture par :
 
@@ -685,9 +901,104 @@ L’interface permet de rechercher une voiture par :
 
 Elle permet aussi de filtrer les voitures par statut.
 
-Un bouton permet de réinitialiser la recherche et les filtres.
+La recherche et le filtre sont faits côté Main, dans `voitures.service.js`, avec SQLite.
 
-Le menu natif contient aussi une action de réinitialisation des filtres.
+Le Renderer envoie seulement les critères :
+
+```js
+{
+  recherche: 'renault',
+  statut: 'tous'
+}
+```
+
+Puis le service construit une requête SQL préparée.
+
+Cela respecte le bonus de recherche côté SQL et évite de filtrer uniquement en JavaScript dans le Renderer.
+
+---
+
+## Thèmes
+
+L’application possède trois modes d’apparence :
+
+```txt
+system = suivre le système
+light = mode clair
+dark = mode sombre
+```
+
+Le thème clair utilise un style blanc/crème avec un rouge vif bien distinct.
+
+Le thème sombre utilise un style noir, rouge et néon.
+
+Le choix est sauvegardé dans `userData`, donc l’utilisateur n’a pas besoin de le choisir à chaque ouverture de l’application.
+
+---
+
+## Internationalisation
+
+L’application possède un système simple d’internationalisation.
+
+Les langues disponibles sont :
+
+```txt
+fr = français
+en = anglais
+```
+
+Les textes fixes du layout utilisent des clés comme :
+
+```html
+<span data-i18n="header.language">Langue</span>
+```
+
+Les textes dynamiques utilisent la fonction :
+
+```js
+t('car.edit')
+```
+
+La langue est détectée automatiquement au premier lancement selon la locale système.
+
+Si la locale correspond à un pays francophone, l’application démarre en français.
+Sinon, elle démarre en anglais.
+
+Le choix de l’utilisateur est ensuite sauvegardé dans `userData`.
+
+---
+
+## Météo externe
+
+L’application affiche un panneau météo dans l’interface.
+
+La météo est récupérée via une API externe Open-Meteo.
+
+L’appel est fait côté Main process dans `meteo.service.js`.
+
+Le Renderer demande simplement les données via IPC :
+
+```txt
+Renderer
+→ preload
+→ IPC
+→ main
+→ meteo.service.js
+→ Open-Meteo
+```
+
+Le panneau météo affiche :
+
+- la ville ;
+- la température ;
+- l’humidité ;
+- le vent ;
+- la pluie ;
+- un conseil garage.
+
+Un bouton permet d’actualiser la météo depuis l’interface.
+
+Le menu natif et le Tray permettent aussi d’actualiser la météo.
 
 ---
 
@@ -699,10 +1010,26 @@ Il contient notamment :
 
 ```txt
 Garage
-├─ Nouvelle voiture
-├─ Recharger les données
-├─ Réinitialiser les filtres
+├─ Véhicules
+│  └─ Nouvelle voiture
+├─ Données
+│  ├─ Recharger les données
+│  └─ Réinitialiser les filtres
+├─ Factures
 └─ Quitter
+
+Affichage
+├─ Apparence
+│  ├─ Suivre le système
+│  ├─ Mode sombre
+│  └─ Mode clair
+└─ Langue
+   ├─ Français
+   └─ Anglais
+
+Outils
+├─ Actualiser la météo
+└─ Informations techniques
 ```
 
 Les raccourcis utilisés sont :
@@ -711,11 +1038,65 @@ Les raccourcis utilisés sont :
 Cmd/Ctrl + N = Nouvelle voiture
 F5 = Recharger les données
 Cmd/Ctrl + Shift + F = Réinitialiser les filtres
+Cmd/Ctrl + M = Actualiser la météo
 ```
 
 Le menu est défini dans le Main process.
 
 Quand l’utilisateur clique sur un élément du menu, le Main envoie un message au Renderer.
+
+---
+
+## Tray
+
+L’application possède une icône Tray dans la barre système.
+
+Sur macOS, elle apparaît dans la barre en haut, près de l’heure, du Wi-Fi et de la batterie.
+
+Sur Windows, elle apparaît près de l’horloge.
+
+Le Tray contient un menu rapide :
+
+```txt
+Garage Manager
+├─ Ouvrir l’application
+├─ Actions rapides
+│  ├─ Nouvelle voiture
+│  ├─ Recharger les données
+│  ├─ Réinitialiser les filtres
+│  └─ Actualiser la météo
+├─ Préférences
+│  ├─ Apparence
+│  └─ Langue
+└─ Quitter
+```
+
+Quand la fenêtre est fermée, l’application peut rester disponible dans le Tray.
+
+L’utilisateur peut ensuite rouvrir l’application depuis ce menu.
+
+---
+
+## Icône d’application personnalisée
+
+L’application utilise une icône personnalisée dans le build.
+
+Le fichier est placé ici :
+
+```txt
+build/icon.png
+```
+
+Cette icône est utilisée par `electron-builder` avec `build.icon`.
+
+Elle apparaît notamment :
+
+- dans le Finder ;
+- dans le Dock ;
+- dans l’application packagée ;
+- dans les builds Windows/Linux si générés avec les targets correspondantes.
+
+Le bonus `build.icon` est donc réalisé.
 
 ---
 
@@ -749,6 +1130,7 @@ Exemples :
 - intervention modifiée ;
 - intervention supprimée ;
 - facture exportée ;
+- météo actualisée ;
 - erreur.
 
 ### Notifications système
@@ -767,7 +1149,9 @@ Chaque carte voiture possède un bouton `Facture`.
 
 Ce bouton permet d’exporter une facture au format HTML.
 
-L’export utilise une boîte native `Enregistrer sous`.
+Avant l’export, l’application demande la langue de la facture.
+
+La langue actuelle de l’application est proposée par défaut.
 
 La facture contient :
 
@@ -802,6 +1186,8 @@ dist/
 *.sqlite
 *.sqlite3
 ```
+
+Le dossier `build/` doit rester versionné car il contient l’icône personnalisée de l’application.
 
 ---
 
@@ -857,6 +1243,20 @@ Elle permet de tenter la génération du `.zip` et du `.dmg` après avoir libér
 
 ---
 
+## Notion d’auto-update
+
+L’auto-update permet à une application Electron de vérifier automatiquement si une nouvelle version est disponible.
+
+Avec `electron-updater`, l’application peut interroger un serveur de publication, par exemple GitHub Releases ou un serveur privé, pour comparer la version installée avec la dernière version disponible.
+
+Si une mise à jour existe, elle peut être téléchargée puis installée au redémarrage de l’application avec `autoUpdater.checkForUpdatesAndNotify()` ou avec une logique personnalisée.
+
+Pour fonctionner correctement, `electron-builder` génère les fichiers de release et les métadonnées nécessaires, comme `latest.yml`, qui permettent à l’application de savoir quelle version télécharger.
+
+Sur macOS, l’application doit normalement être signée pour que l’auto-update fonctionne correctement en production.
+
+---
+
 ## Tests à effectuer
 
 Pour valider l’application, il faut tester :
@@ -873,8 +1273,8 @@ Pour valider l’application, il faut tester :
 9. Passage d’une voiture au statut Prête
 10. Affichage de la notification visuelle
 11. Affichage des badges de statut
-12. Recherche d’une voiture
-13. Filtre par statut
+12. Recherche d’une voiture côté SQL
+13. Filtre par statut côté SQL
 14. Réinitialisation des filtres
 15. Ajout d’une intervention
 16. Modification d’une intervention
@@ -883,12 +1283,21 @@ Pour valider l’application, il faut tester :
 19. Suppression d’une intervention avec confirmation native
 20. Suppression d’une voiture avec confirmation native
 21. Vérification de la suppression en cascade
-22. Export d’une facture HTML
-23. Ouverture de la facture exportée
-24. Test du menu natif
-25. Test du raccourci Cmd/Ctrl + N
-26. Test de npm run pack
-27. Test de npm run dist
+22. Export d’une facture HTML en français
+23. Export d’une facture HTML en anglais
+24. Ouverture de la facture exportée
+25. Test du menu natif
+26. Test du raccourci Cmd/Ctrl + N
+27. Test du changement de thème
+28. Fermeture / réouverture pour vérifier le thème sauvegardé
+29. Test du changement de langue
+30. Fermeture / réouverture pour vérifier la langue sauvegardée
+31. Test du panneau météo
+32. Test du bouton d’actualisation météo
+33. Test du Tray
+34. Test du bouton Quitter depuis le Tray
+35. Test de npm run pack
+36. Test de npm run dist
 ```
 
 ---
@@ -967,7 +1376,10 @@ Il permet notamment :
 
 - d’ouvrir la popup d’ajout de voiture ;
 - de recharger les données ;
-- de réinitialiser les filtres.
+- de réinitialiser les filtres ;
+- d’actualiser la météo ;
+- de changer le thème ;
+- de changer la langue.
 
 ---
 
@@ -991,6 +1403,8 @@ Réalisé.
 L’application exporte une facture HTML via une boîte native `Enregistrer sous`.
 
 La facture contient les interventions, le total HT, la TVA et le total TTC.
+
+La facture peut être générée en français ou en anglais.
 
 ---
 
@@ -1022,19 +1436,48 @@ Les bonus réalisés sont :
 - suppression en cascade SQLite ;
 - validation métier ;
 - interface moderne ;
+- thème clair/sombre avec `nativeTheme` ;
+- sauvegarde du thème dans `userData` ;
+- changement de langue français/anglais ;
+- détection automatique de la langue ;
+- sauvegarde de la langue dans `userData` ;
 - dashboard ;
-- recherche ;
-- filtre par statut ;
+- recherche côté SQL ;
+- filtre par statut côté SQL ;
 - bouton de réinitialisation des filtres ;
 - menu natif ;
 - raccourcis clavier ;
+- icône Tray avec menu rapide ;
+- icône d’application personnalisée avec `build.icon` ;
 - notifications visuelles ;
 - notifications système ;
 - confirmation native Electron ;
 - fallback HTML de confirmation ;
 - export de facture HTML ;
+- choix de la langue de facture ;
 - facture avec HT / TVA / TTC ;
-- packaging avec `electron-builder`.
+- météo externe via Open-Meteo ;
+- packaging avec `electron-builder` ;
+- notion d’auto-update documentée.
+
+---
+
+## Différence entre `build.icon` et Tray
+
+Le bonus `build.icon` correspond à l’icône officielle de l’application packagée.
+
+Elle apparaît notamment :
+
+- dans le Dock ;
+- dans le Finder ;
+- dans l’application générée ;
+- dans l’installeur ou l’archive distribuable.
+
+Le bonus Tray correspond à une petite icône dans la barre système pendant que l’application tourne.
+
+Elle sert à proposer un menu rapide pour ouvrir l’application, créer une voiture, actualiser la météo, changer les préférences ou quitter.
+
+Les deux bonus sont donc différents et les deux sont réalisés.
 
 ---
 
@@ -1042,6 +1485,6 @@ Les bonus réalisés sont :
 
 Garage Manager est une application Electron complète qui respecte la séparation entre le Main process, le Preload et le Renderer.
 
-Le projet montre l’utilisation de l’IPC, la sécurisation de l’accès à Node.js, la persistance avec SQLite dans `userData`, les requêtes préparées, l’utilisation d’API natives Electron, la génération de factures et le packaging avec `electron-builder`.
+Le projet montre l’utilisation de l’IPC, la sécurisation de l’accès à Node.js, la persistance avec SQLite dans `userData`, les requêtes préparées, l’utilisation d’API natives Electron, l’internationalisation, la gestion d’un thème persistant, l’appel à une API externe, la génération de factures et le packaging avec `electron-builder`.
 
 L’application est fonctionnelle et couvre les principaux besoins d’un petit outil de gestion de garage.

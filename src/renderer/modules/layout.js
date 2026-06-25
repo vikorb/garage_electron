@@ -12,45 +12,49 @@ export function renderLayout() {
         </div>
 
         <div class="top-actions">
-          <div class="theme-control">
-            <span class="theme-control-label" data-i18n="header.appearance">Apparence</span>
+          <div class="header-controls">
+            <div class="header-control-card">
+              <span class="header-control-label" data-i18n="header.appearance">Apparence</span>
 
-            <div class="theme-select-wrap">
-              <select
-                id="theme-select"
-                aria-label="Choisir le thème de l'application"
-                data-i18n-aria="header.appearance"
-              >
-                <option value="system" data-i18n="theme.system">Système</option>
-                <option value="dark" data-i18n="theme.dark">Sombre</option>
-                <option value="light" data-i18n="theme.light">Clair</option>
-              </select>
+              <div class="header-select-wrap">
+                <select
+                  id="theme-select"
+                  aria-label="Choisir le thème de l'application"
+                  data-i18n-aria="header.appearance"
+                >
+                  <option value="system" data-i18n="theme.system">Système</option>
+                  <option value="dark" data-i18n="theme.dark">Sombre</option>
+                  <option value="light" data-i18n="theme.light">Clair</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="header-control-card">
+              <span class="header-control-label" data-i18n="header.language">Langue</span>
+
+              <div class="header-select-wrap">
+                <select
+                  id="language-select"
+                  aria-label="Choisir la langue de l'application"
+                  data-i18n-aria="header.language"
+                >
+                  <option value="fr" data-i18n="language.fr">Français</option>
+                  <option value="en" data-i18n="language.en">Anglais</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="language-control">
-            <span class="language-control-label" data-i18n="header.language">Langue</span>
-
-            <div class="language-select-wrap">
-              <select
-                id="language-select"
-                aria-label="Choisir la langue de l'application"
-                data-i18n-aria="header.language"
-              >
-                <option value="fr" data-i18n="language.fr">Français</option>
-                <option value="en" data-i18n="language.en">Anglais</option>
-              </select>
-            </div>
+          <div class="header-main-action">
+            <button
+              id="btn-ouvrir-ajout-voiture"
+              type="button"
+              class="btn-primary-header"
+              data-i18n="header.newCar"
+            >
+              + Nouvelle voiture
+            </button>
           </div>
-
-          <button
-            id="btn-ouvrir-ajout-voiture"
-            type="button"
-            class="btn-primary-header"
-            data-i18n="header.newCar"
-          >
-            + Nouvelle voiture
-          </button>
         </div>
       </header>
 
